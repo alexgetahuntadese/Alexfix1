@@ -3,7 +3,7 @@ import StarField from '@/components/StarField';
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Copy, Play, Trophy, Users } from "lucide-react";
+import { ArrowLeft, Copy, Play, Trophy, Users, Video, VideoOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
   getSession, 
@@ -16,6 +16,7 @@ import {
 import { getQuestionsForQuiz } from "@/lib/quizUtils";
 import LiveQuizSession from "@/components/session/LiveQuizSession";
 import SessionLeaderboard from "@/components/session/SessionLeaderboard";
+import VideoCall from "@/components/VideoCall";
 import { useLanguage } from "@/i18n/LanguageContext";
 
 type SessionStatus = 'waiting' | 'in_progress' | 'completed';
@@ -57,6 +58,7 @@ const SessionPage = () => {
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<NormalizedQuestion[]>([]);
   const [hasAnswered, setHasAnswered] = useState(false);
+  const [showVideoCall, setShowVideoCall] = useState(false);
 
   const refreshData = useCallback(() => {
     if (!sessionCode) return;
@@ -177,10 +179,30 @@ const SessionPage = () => {
               {t('quiz.question')} {session.current_question_index + 1} / {questions.length}
             </div>
             <div className="text-white flex items-center gap-2">
+              <Button
+                onClick={() => setShowVideoCall(!showVideoCall)}
+                variant={showVideoCall ? "default" : "outline"}
+                size="sm"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                {showVideoCall ? <VideoOff className="h-4 w-4 mr-2" /> : <Video className="h-4 w-4 mr-2" />}
+                {showVideoCall ? 'Hide Video' : 'Video Call'}
+              </Button>
               <Users className="h-4 w-4" />
               {participants.length} {t('common.players')}
             </div>
           </div>
+
+          {showVideoCall && (
+            <div className="mb-4">
+              <VideoCall
+                sessionId={session.id}
+                mySenderId={participantId || ''}
+                isHost={isHost}
+                onEndCall={() => setShowVideoCall(false)}
+              />
+            </div>
+          )}
 
           <div className="grid md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
@@ -280,6 +302,26 @@ const SessionPage = () => {
             </div>
           </CardContent>
         </Card>
+
+        {showVideoCall && (
+          <div className="mb-4">
+            <VideoCall
+              sessionId={session.id}
+              mySenderId={participantId || ''}
+              isHost={isHost}
+              onEndCall={() => setShowVideoCall(false)}
+            />
+          </div>
+        )}
+
+        <Button
+          onClick={() => setShowVideoCall(!showVideoCall)}
+          variant={showVideoCall ? "default" : "outline"}
+          className="w-full mb-4 bg-white/10 border-white/20 text-white hover:bg-white/20"
+        >
+          {showVideoCall ? <VideoOff className="h-4 w-4 mr-2" /> : <Video className="h-4 w-4 mr-2" />}
+          {showVideoCall ? 'Hide Video' : 'Start Video Call'}
+        </Button>
 
         {isHost ? (
           <Button
