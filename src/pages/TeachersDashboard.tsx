@@ -1,0 +1,415 @@
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Users, Search, Filter, TrendingUp, TrendingDown, BookOpen, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import TopBar from '@/components/TopBar';
+import StarField from '@/components/StarField';
+import { Input } from '@/components/ui/input';
+
+// Data structure for student progress
+interface StudentSubjectPerformance {
+  subject: string;
+  correct: number;
+  missed: number;
+  total: number;
+}
+
+interface StudentProgress {
+  id: string;
+  name: string;
+  stream: 'natural' | 'social';
+  subjects: StudentSubjectPerformance[];
+  totalCorrect: number;
+  totalMissed: number;
+  totalQuestions: number;
+  lastActivity: string;
+}
+
+// Mock student data
+const mockStudents: StudentProgress[] = [
+  {
+    id: '1',
+    name: 'Abebe Kebede',
+    stream: 'natural',
+    lastActivity: '2 hours ago',
+    subjects: [
+      { subject: 'Mathematics', correct: 45, missed: 15, total: 60 },
+      { subject: 'Physics', correct: 38, missed: 22, total: 60 },
+      { subject: 'Chemistry', correct: 42, missed: 18, total: 60 },
+      { subject: 'Biology', correct: 50, missed: 10, total: 60 },
+      { subject: 'English', correct: 35, missed: 25, total: 60 },
+      { subject: 'Civics', correct: 48, missed: 12, total: 60 },
+    ],
+    totalCorrect: 258,
+    totalMissed: 102,
+    totalQuestions: 360,
+  },
+  {
+    id: '2',
+    name: 'Tigist Haile',
+    stream: 'social',
+    lastActivity: '5 hours ago',
+    subjects: [
+      { subject: 'Mathematics', correct: 40, missed: 20, total: 60 },
+      { subject: 'English', correct: 48, missed: 12, total: 60 },
+      { subject: 'History', correct: 52, missed: 8, total: 60 },
+      { subject: 'Geography', correct: 45, missed: 15, total: 60 },
+      { subject: 'Economics', correct: 38, missed: 22, total: 60 },
+      { subject: 'Civics', correct: 50, missed: 10, total: 60 },
+    ],
+    totalCorrect: 273,
+    totalMissed: 87,
+    totalQuestions: 360,
+  },
+  {
+    id: '3',
+    name: 'Dawit Alemu',
+    stream: 'natural',
+    lastActivity: '1 day ago',
+    subjects: [
+      { subject: 'Mathematics', correct: 30, missed: 30, total: 60 },
+      { subject: 'Physics', correct: 25, missed: 35, total: 60 },
+      { subject: 'Chemistry', correct: 35, missed: 25, total: 60 },
+      { subject: 'Biology', correct: 40, missed: 20, total: 60 },
+      { subject: 'English', correct: 28, missed: 32, total: 60 },
+      { subject: 'Civics', correct: 42, missed: 18, total: 60 },
+    ],
+    totalCorrect: 200,
+    totalMissed: 160,
+    totalQuestions: 360,
+  },
+  {
+    id: '4',
+    name: 'Sara Tekle',
+    stream: 'social',
+    lastActivity: '3 days ago',
+    subjects: [
+      { subject: 'Mathematics', correct: 55, missed: 5, total: 60 },
+      { subject: 'English', correct: 52, missed: 8, total: 60 },
+      { subject: 'History', correct: 48, missed: 12, total: 60 },
+      { subject: 'Geography', correct: 50, missed: 10, total: 60 },
+      { subject: 'Economics', correct: 45, missed: 15, total: 60 },
+      { subject: 'Civics', correct: 55, missed: 5, total: 60 },
+    ],
+    totalCorrect: 305,
+    totalMissed: 55,
+    totalQuestions: 360,
+  },
+  {
+    id: '5',
+    name: 'Kifle Yohannes',
+    stream: 'natural',
+    lastActivity: '1 week ago',
+    subjects: [
+      { subject: 'Mathematics', correct: 20, missed: 40, total: 60 },
+      { subject: 'Physics', correct: 18, missed: 42, total: 60 },
+      { subject: 'Chemistry', correct: 22, missed: 38, total: 60 },
+      { subject: 'Biology', correct: 25, missed: 35, total: 60 },
+      { subject: 'English', correct: 30, missed: 30, total: 60 },
+      { subject: 'Civics', correct: 35, missed: 25, total: 60 },
+    ],
+    totalCorrect: 150,
+    totalMissed: 210,
+    totalQuestions: 360,
+  },
+];
+
+const TeachersDashboard = () => {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStream, setFilterStream] = useState<'all' | 'natural' | 'social'>('all');
+  const [selectedStudent, setSelectedStudent] = useState<StudentProgress | null>(null);
+
+  const filteredStudents = useMemo(() => {
+    return mockStudents.filter((student) => {
+      const matchesSearch = student.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStream = filterStream === 'all' || student.stream === filterStream;
+      return matchesSearch && matchesStream;
+    });
+  }, [searchQuery, filterStream]);
+
+  const overallStats = useMemo(() => {
+    const totalStudents = mockStudents.length;
+    const avgCorrect = Math.round(mockStudents.reduce((sum, s) => sum + s.totalCorrect, 0) / totalStudents);
+    const avgMissed = Math.round(mockStudents.reduce((sum, s) => sum + s.totalMissed, 0) / totalStudents);
+    const naturalCount = mockStudents.filter(s => s.stream === 'natural').length;
+    const socialCount = mockStudents.filter(s => s.stream === 'social').length;
+    
+    return { totalStudents, avgCorrect, avgMissed, naturalCount, socialCount };
+  }, []);
+
+  const getStreamColor = (stream: string) => {
+    return stream === 'natural' ? 'from-emerald-500 to-teal-600' : 'from-purple-500 to-pink-600';
+  };
+
+  const getStreamBadge = (stream: string) => {
+    return stream === 'natural' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+  };
+
+  const getPercentage = (correct: number, total: number) => {
+    return Math.round((correct / total) * 100);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-950 via-violet-900 to-purple-950 pt-14 px-4 pb-4 md:p-8 md:pt-14 overflow-hidden relative">
+      <StarField />
+      <TopBar />
+
+      <div className="max-w-7xl mx-auto relative z-10 mt-8">
+        <div className="flex items-center gap-4 mb-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+            className="text-white/60 hover:text-white hover:bg-white/10 transition-all duration-200"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg">
+                <Users className="h-6 w-6 text-white" />
+              </div>
+              <h1 className="text-3xl md:text-4xl font-bold text-white">Teachers Dashboard</h1>
+            </div>
+            <p className="text-white/50 text-sm">Monitor student progress on 2018 predicted questions</p>
+          </div>
+        </div>
+
+        {/* Stats Overview */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <Card className="bg-white/[0.04] backdrop-blur-xl border-white/[0.08]">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-indigo-500/20">
+                  <Users className="h-5 w-5 text-indigo-400" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-white">{overallStats.totalStudents}</div>
+                  <div className="text-xs text-white/50">Total Students</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-white/[0.04] backdrop-blur-xl border-white/[0.08]">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-500/20">
+                  <CheckCircle className="h-5 w-5 text-emerald-400" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-white">{overallStats.avgCorrect}</div>
+                  <div className="text-xs text-white/50">Avg Correct</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-white/[0.04] backdrop-blur-xl border-white/[0.08]">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-red-500/20">
+                  <XCircle className="h-5 w-5 text-red-400" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-white">{overallStats.avgMissed}</div>
+                  <div className="text-xs text-white/50">Avg Missed</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-white/[0.04] backdrop-blur-xl border-white/[0.08]">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-500/20">
+                  <BookOpen className="h-5 w-5 text-emerald-400" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-white">{overallStats.naturalCount}</div>
+                  <div className="text-xs text-white/50">Natural</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-white/[0.04] backdrop-blur-xl border-white/[0.08]">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-500/20">
+                  <BookOpen className="h-5 w-5 text-purple-400" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-white">{overallStats.socialCount}</div>
+                  <div className="text-xs text-white/50">Social</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card className="bg-white/[0.04] backdrop-blur-xl border-white/[0.08] mb-6">
+          <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+                <Input
+                  placeholder="Search students..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/40"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant={filterStream === 'all' ? 'default' : 'outline'}
+                  onClick={() => setFilterStream('all')}
+                  className={filterStream === 'all' ? 'bg-white/20 text-white' : 'border-white/20 text-white/70 hover:bg-white/10'}
+                >
+                  All Streams
+                </Button>
+                <Button
+                  variant={filterStream === 'natural' ? 'default' : 'outline'}
+                  onClick={() => setFilterStream('natural')}
+                  className={filterStream === 'natural' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'border-white/20 text-white/70 hover:bg-white/10'}
+                >
+                  Natural
+                </Button>
+                <Button
+                  variant={filterStream === 'social' ? 'default' : 'outline'}
+                  onClick={() => setFilterStream('social')}
+                  className={filterStream === 'social' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'border-white/20 text-white/70 hover:bg-white/10'}
+                >
+                  Social
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Student List */}
+        <div className="space-y-4">
+          {filteredStudents.map((student) => (
+            <Card
+              key={student.id}
+              className="bg-white/[0.04] backdrop-blur-xl border-white/[0.08] hover:bg-white/[0.08] transition-all cursor-pointer"
+              onClick={() => setSelectedStudent(student)}
+            >
+              <CardContent className="p-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${getStreamColor(student.stream)} flex items-center justify-center text-white font-bold text-lg shadow-lg`}>
+                      {student.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">{student.name}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge className={getStreamBadge(student.stream)}>
+                          {student.stream === 'natural' ? 'Natural Science' : 'Social Science'}
+                        </Badge>
+                        <span className="text-white/50 text-sm">Last activity: {student.lastActivity}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-6">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-emerald-400">{student.totalCorrect}</div>
+                      <div className="text-xs text-white/50">Correct</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-400">{student.totalMissed}</div>
+                      <div className="text-xs text-white/50">Missed</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-white">{getPercentage(student.totalCorrect, student.totalQuestions)}%</div>
+                      <div className="text-xs text-white/50">Accuracy</div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Student Detail Modal */}
+        {selectedStudent && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedStudent(null)}>
+            <Card className="bg-white/[0.06] backdrop-blur-xl border-white/[0.1] max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${getStreamColor(selectedStudent.stream)} flex items-center justify-center text-white font-bold text-2xl shadow-lg`}>
+                      {selectedStudent.name.charAt(0)}
+                    </div>
+                    <div>
+                      <CardTitle className="text-2xl text-white">{selectedStudent.name}</CardTitle>
+                      <CardDescription className="text-white/60">
+                        {selectedStudent.stream === 'natural' ? 'Natural Science' : 'Social Science'} Stream
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedStudent(null)} className="text-white/60 hover:text-white">
+                    <XCircle className="h-6 w-6" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="text-center p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                    <div className="text-3xl font-bold text-emerald-400">{selectedStudent.totalCorrect}</div>
+                    <div className="text-sm text-white/50">Total Correct</div>
+                  </div>
+                  <div className="text-center p-4 rounded-xl bg-red-500/10 border border-red-500/30">
+                    <div className="text-3xl font-bold text-red-400">{selectedStudent.totalMissed}</div>
+                    <div className="text-sm text-white/50">Total Missed</div>
+                  </div>
+                  <div className="text-center p-4 rounded-xl bg-white/5 border border-white/10">
+                    <div className="text-3xl font-bold text-white">{getPercentage(selectedStudent.totalCorrect, selectedStudent.totalQuestions)}%</div>
+                    <div className="text-sm text-white/50">Accuracy</div>
+                  </div>
+                </div>
+
+                <h4 className="text-lg font-semibold text-white mb-4">Subject Performance (2018 Predicted Questions)</h4>
+                <div className="space-y-3">
+                  {selectedStudent.subjects.map((subject) => (
+                    <div key={subject.subject} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+                      <div className="flex items-center gap-3">
+                        <BookOpen className="h-5 w-5 text-white/60" />
+                        <span className="text-white font-medium">{subject.subject}</span>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-emerald-400" />
+                          <span className="text-emerald-400 font-semibold">{subject.correct}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <XCircle className="h-4 w-4 text-red-400" />
+                          <span className="text-red-400 font-semibold">{subject.missed}</span>
+                        </div>
+                        <div className="w-32">
+                          <div className="flex items-center justify-between text-xs text-white/50 mb-1">
+                            <span>{getPercentage(subject.correct, subject.total)}%</span>
+                            <span>{subject.total} total</span>
+                          </div>
+                          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all"
+                              style={{ width: `${getPercentage(subject.correct, subject.total)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default TeachersDashboard;
