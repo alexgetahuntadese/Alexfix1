@@ -38,6 +38,9 @@ const SignUpPage = lazy(() => import("./pages/SignUpPage"));
 const PredictedMatricPage = lazy(() => import("./pages/PredictedMatricPage"));
 const PredictedMatricQuizPage = lazy(() => import("./pages/PredictedMatricQuizPage"));
 const TeachersDashboard = lazy(() => import("./pages/TeachersDashboard"));
+const HostPage = lazy(() => import("./pages/HostPage"));
+const JoinPage = lazy(() => import("./pages/JoinPage"));
+const SessionPage = lazy(() => import("./pages/SessionPage"));
 
 // Loading component for lazy loaded routes
 const PageLoader = () => (
@@ -215,6 +218,21 @@ const App = () => (
                 <Route path="/teachers" element={
                   <Suspense fallback={<PageLoader />}>
                     <TeachersDashboard />
+                  </Suspense>
+                } />
+                <Route path="/host" element={
+                  <Suspense fallback={<PageLoader />}>
+                    <HostPage />
+                  </Suspense>
+                } />
+                <Route path="/join" element={
+                  <Suspense fallback={<PageLoader />}>
+                    <JoinPage />
+                  </Suspense>
+                } />
+                <Route path="/session/:sessionCode" element={
+                  <Suspense fallback={<PageLoader />}>
+                    <SessionPage />
                   </Suspense>
                 } />
               </Routes>

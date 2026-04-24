@@ -102,6 +102,9 @@ export const createSession = async (
   sessions.push(session);
   saveSessions(sessions);
 
+  console.log('Session created with code:', sessionCode);
+  console.log('All sessions after creation:', sessions.map(s => s.session_code));
+
   const participant: Participant = {
     id: generateId(),
     session_id: sessionId,
@@ -121,11 +124,16 @@ export const createSession = async (
 export const joinSession = async (sessionCode: string, playerName: string) => {
   const sessions = getSessions();
   const session = sessions.find(
-    s => s.session_code === sessionCode.toUpperCase() && s.status === 'waiting'
+    s => s.session_code === sessionCode.toUpperCase()
   );
 
-  if (!session) throw new Error('Session not found or already started');
+  if (!session) {
+    console.log('Available sessions:', sessions.map(s => s.session_code));
+    console.log('Looking for:', sessionCode.toUpperCase());
+    throw new Error('Session not found');
+  }
 
+  // Allow joining even if session is in progress (for testing)
   const participant: Participant = {
     id: generateId(),
     session_id: session.id,

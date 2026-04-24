@@ -8,12 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Users } from "lucide-react";
 import { createSession } from "@/lib/sessionUtils";
 import { useToast } from "@/hooks/use-toast";
-import { useLanguage } from "@/i18n/LanguageContext";
 
 const HostPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { t } = useLanguage();
   const [hostName, setHostName] = useState("");
   const [grade, setGrade] = useState("");
   const [subject, setSubject] = useState("");
@@ -28,8 +26,8 @@ const HostPage = () => {
   const handleCreateSession = async () => {
     if (!hostName.trim() || !grade || !subject || !difficulty) {
       toast({
-        title: t('host.missingFields'),
-        description: t('host.fillRequired'),
+        title: "Missing fields",
+        description: "Please fill in all required fields",
         variant: "destructive"
       });
       return;
@@ -48,11 +46,16 @@ const HostPage = () => {
       sessionStorage.setItem('participantId', participant.id);
       sessionStorage.setItem('isHost', 'true');
       
+      toast({
+        title: "Session Created!",
+        description: `Session code: ${session.session_code}`,
+      });
+      
       navigate(`/session/${session.session_code}`);
     } catch (error) {
       toast({
         title: "Error",
-        description: t('host.errorCreating'),
+        description: "Failed to create session. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -70,7 +73,7 @@ const HostPage = () => {
           className="text-white hover:bg-white/10 mb-6"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          {t('common.back')}
+          Back
         </Button>
 
         <Card className="bg-white/10 backdrop-blur-md border-white/20">
@@ -78,16 +81,16 @@ const HostPage = () => {
             <div className="mx-auto w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4">
               <Users className="h-8 w-8 text-white" />
             </div>
-            <CardTitle className="text-2xl text-white">{t('host.hostQuiz')}</CardTitle>
+            <CardTitle className="text-2xl text-white">Host a Quiz Session</CardTitle>
             <CardDescription className="text-blue-100">
-              {t('host.hostDescription')}
+              Create a multiplayer quiz and invite friends
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm text-white/80 mb-2 block">{t('host.yourName')}</label>
+              <label className="text-sm text-white/80 mb-2 block">Your Name</label>
               <Input
-                placeholder={t('host.enterName')}
+                placeholder="Enter your name"
                 value={hostName}
                 onChange={(e) => setHostName(e.target.value)}
                 className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
@@ -95,24 +98,24 @@ const HostPage = () => {
             </div>
 
             <div>
-              <label className="text-sm text-white/80 mb-2 block">{t('common.grade')}</label>
+              <label className="text-sm text-white/80 mb-2 block">Grade</label>
               <Select value={grade} onValueChange={setGrade}>
                 <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                  <SelectValue placeholder={t('host.selectGrade')} />
+                  <SelectValue placeholder="Select grade" />
                 </SelectTrigger>
                 <SelectContent>
                   {grades.map((g) => (
-                    <SelectItem key={g} value={g}>{t('common.grade')} {g}</SelectItem>
+                    <SelectItem key={g} value={g}>Grade {g}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <label className="text-sm text-white/80 mb-2 block">{t('common.subject')}</label>
+              <label className="text-sm text-white/80 mb-2 block">Subject</label>
               <Select value={subject} onValueChange={setSubject}>
                 <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                  <SelectValue placeholder={t('host.selectSubject')} />
+                  <SelectValue placeholder="Select subject" />
                 </SelectTrigger>
                 <SelectContent>
                   {subjects.map((s) => (
@@ -123,10 +126,10 @@ const HostPage = () => {
             </div>
 
             <div>
-              <label className="text-sm text-white/80 mb-2 block">{t('common.difficulty')}</label>
+              <label className="text-sm text-white/80 mb-2 block">Difficulty</label>
               <Select value={difficulty} onValueChange={setDifficulty}>
                 <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                  <SelectValue placeholder={t('host.selectDifficulty')} />
+                  <SelectValue placeholder="Select difficulty" />
                 </SelectTrigger>
                 <SelectContent>
                   {difficulties.map((d) => (
@@ -141,7 +144,7 @@ const HostPage = () => {
               disabled={isCreating}
               className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3"
             >
-              {isCreating ? t('host.creating') : t('host.createSession')}
+              {isCreating ? 'Creating...' : 'Create Session'}
             </Button>
           </CardContent>
         </Card>

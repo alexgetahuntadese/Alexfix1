@@ -14,9 +14,10 @@ import {
   submitAnswer 
 } from "@/lib/sessionUtils";
 import { getQuestionsForQuiz } from "@/lib/quizUtils";
+import { getDailyRoomUrl } from "@/lib/dailyUtils";
 import LiveQuizSession from "@/components/session/LiveQuizSession";
 import SessionLeaderboard from "@/components/session/SessionLeaderboard";
-import VideoCall from "@/components/VideoCall";
+import DailyVideoCall from "@/components/DailyVideoCall";
 import { useLanguage } from "@/i18n/LanguageContext";
 
 type SessionStatus = 'waiting' | 'in_progress' | 'completed';
@@ -59,11 +60,13 @@ const SessionPage = () => {
   const [questions, setQuestions] = useState<NormalizedQuestion[]>([]);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [showVideoCall, setShowVideoCall] = useState(false);
+  const [dailyRoomUrl, setDailyRoomUrl] = useState<string | null>(null);
 
   const refreshData = useCallback(() => {
     if (!sessionCode) return;
     
     const currentSession = getSession(sessionCode);
+    console.log('Refresh data - current session:', currentSession);
     if (currentSession) {
       setSession(currentSession);
       setParticipants(getSessionParticipants(currentSession.id));
@@ -75,14 +78,27 @@ const SessionPage = () => {
     const storedIsHost = sessionStorage.getItem('isHost') === 'true';
     setParticipantId(storedParticipantId);
     setIsHost(storedIsHost);
-
-    refreshData();
-    const interval = setInterval(refreshData, 1000);
+    
+    const currentSession = getSession(sessionCode);
+    if (currentSession) {
+      setSession(currentSession);
+      setParticipants(getSessionParticipants(currentSession.id));
+    }
+    
+    const interval = setInterval(() => {
+      const updatedSession = getSession(sessionCode);
+      if (updatedSession) {
+        setSession(updatedSession);
+        setParticipants(getSessionParticipants(updatedSession.id));
+      }
+    }, 1000);
     return () => clearInterval(interval);
-  }, [sessionCode, refreshData]);
+  }, [sessionCode]);
 
   useEffect(() => {
+    console.log('Session status changed:', session?.status, 'Questions length:', questions.length);
     if (session?.status === 'in_progress' && questions.length === 0) {
+      console.log('Loading questions...');
       loadQuestions();
     }
   }, [session?.status]);
@@ -93,19 +109,27 @@ const SessionPage = () => {
 
   const loadQuestions = () => {
     if (!session) return;
+    console.log('Loading questions for:', session.grade, session.subject, session.chapter_id, session.difficulty);
     const quizQuestions = getQuestionsForQuiz(
       parseInt(session.grade),
       session.subject,
       session.chapter_id,
       session.difficulty
     );
+    console.log('Got questions:', quizQuestions.length);
     setQuestions(quizQuestions.slice(0, 10));
   };
 
   const handleStartSession = async () => {
     if (!session) return;
-    await startSession(session.id);
-    refreshData();
+    console.log('Starting session:', session.id);
+    try {
+      await startSession(session.id);
+      console.log('Session started, refreshing data');
+      refreshData();
+    } catch (error) {
+      console.error('Error starting session:', error);
+    }
   };
 
   const handleNextQuestion = async () => {
@@ -129,14 +153,31 @@ const SessionPage = () => {
 
   const copyCode = () => {
     navigator.clipboard.writeText(sessionCode || '');
-    toast({ title: t('common.codeCopied') });
+    toast({ title: 'Code copied!' });
+  };
+
+  const handleToggleVideoCall = async () => {
+    if (!showVideoCall && !dailyRoomUrl && session) {
+      try {
+        const url = await getDailyRoomUrl(session.session_code);
+        setDailyRoomUrl(url);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to create video room",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+    setShowVideoCall(!showVideoCall);
   };
 
   if (!session) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-950 via-violet-900 to-purple-950 flex items-center justify-center overflow-hidden relative">
         <StarField starCount={30} shootingCount={2} />
-        <div className="text-white text-xl">{t('common.loading')}</div>
+        <div className="text-white text-xl">Loading...</div>
       </div>
     );
   }
@@ -149,7 +190,7 @@ const SessionPage = () => {
           <Card className="bg-white/10 backdrop-blur-md border-white/20">
             <CardHeader className="text-center">
               <Trophy className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
-              <CardTitle className="text-3xl text-white">{t('results.complete')}</CardTitle>
+              <CardTitle className="text-3xl text-white">Quiz Complete!</CardTitle>
             </CardHeader>
             <CardContent>
               <SessionLeaderboard participants={participants} />
@@ -157,7 +198,7 @@ const SessionPage = () => {
                 onClick={() => navigate('/grades')}
                 className="w-full mt-6 bg-gradient-to-r from-purple-500 to-pink-500"
               >
-                {t('common.backToHome')}
+                Back to Home
               </Button>
             </CardContent>
           </Card>
@@ -176,11 +217,11 @@ const SessionPage = () => {
         <div className="max-w-4xl mx-auto">
           <div className="flex justify-between items-center mb-4">
             <div className="text-white">
-              {t('quiz.question')} {session.current_question_index + 1} / {questions.length}
+              Question {session.current_question_index + 1} / {questions.length}
             </div>
             <div className="text-white flex items-center gap-2">
               <Button
-                onClick={() => setShowVideoCall(!showVideoCall)}
+                onClick={handleToggleVideoCall}
                 variant={showVideoCall ? "default" : "outline"}
                 size="sm"
                 className="bg-white/10 border-white/20 text-white hover:bg-white/20"
@@ -189,17 +230,15 @@ const SessionPage = () => {
                 {showVideoCall ? 'Hide Video' : 'Video Call'}
               </Button>
               <Users className="h-4 w-4" />
-              {participants.length} {t('common.players')}
+              {participants.length} players
             </div>
           </div>
 
-          {showVideoCall && (
+          {showVideoCall && dailyRoomUrl && (
             <div className="mb-4">
-              <VideoCall
-                sessionId={session.id}
-                mySenderId={participantId || ''}
-                isHost={isHost}
-                onEndCall={() => setShowVideoCall(false)}
+              <DailyVideoCall
+                roomUrl={dailyRoomUrl}
+                onLeave={() => setShowVideoCall(false)}
               />
             </div>
           )}
@@ -218,11 +257,11 @@ const SessionPage = () => {
                 <div className="mt-4 flex gap-2">
                   {!isLastQuestion ? (
                     <Button onClick={handleNextQuestion} className="flex-1 bg-blue-500 hover:bg-blue-600">
-                      {t('session.nextQuestion')}
+                      Next Question
                     </Button>
                   ) : (
                     <Button onClick={handleEndSession} className="flex-1 bg-green-500 hover:bg-green-600">
-                      {t('session.endQuiz')}
+                      End Quiz
                     </Button>
                   )}
                 </div>
@@ -248,12 +287,12 @@ const SessionPage = () => {
           className="text-white hover:bg-white/10 mb-6"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          {t('common.leaveSession')}
+          Leave Session
         </Button>
 
         <Card className="bg-white/10 backdrop-blur-md border-white/20 mb-4">
           <CardHeader className="text-center">
-            <CardTitle className="text-xl text-white">{t('session.sessionCode')}</CardTitle>
+            <CardTitle className="text-xl text-white">Session Code</CardTitle>
           </CardHeader>
           <CardContent>
             <div 
@@ -265,7 +304,7 @@ const SessionPage = () => {
               </span>
               <Copy className="h-5 w-5 text-white/70" />
             </div>
-            <p className="text-center text-white/60 text-sm mt-2">{t('common.clickToCopy')}</p>
+            <p className="text-center text-white/60 text-sm mt-2">Click to copy</p>
           </CardContent>
         </Card>
 
@@ -273,7 +312,7 @@ const SessionPage = () => {
           <CardHeader>
             <CardTitle className="text-lg text-white flex items-center gap-2">
               <Users className="h-5 w-5" />
-              {t('common.players')} ({participants.length})
+              Players ({participants.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -285,7 +324,7 @@ const SessionPage = () => {
                 >
                   <span className="text-white">{p.player_name}</span>
                   {p.is_host && (
-                    <span className="text-xs bg-purple-500 text-white px-2 py-1 rounded">{t('common.host')}</span>
+                    <span className="text-xs bg-purple-500 text-white px-2 py-1 rounded">Host</span>
                   )}
                 </div>
               ))}
@@ -296,26 +335,24 @@ const SessionPage = () => {
         <Card className="bg-white/10 backdrop-blur-md border-white/20 mb-4">
           <CardContent className="pt-4">
             <div className="text-white/80 text-sm space-y-1">
-              <p>{t('common.grade')}: {session.grade}</p>
-              <p>{t('common.subject')}: {session.subject}</p>
-              <p>{t('common.difficulty')}: {session.difficulty}</p>
+              <p>Grade: {session.grade}</p>
+              <p>Subject: {session.subject}</p>
+              <p>Difficulty: {session.difficulty}</p>
             </div>
           </CardContent>
         </Card>
 
-        {showVideoCall && (
+        {showVideoCall && dailyRoomUrl && (
           <div className="mb-4">
-            <VideoCall
-              sessionId={session.id}
-              mySenderId={participantId || ''}
-              isHost={isHost}
-              onEndCall={() => setShowVideoCall(false)}
+            <DailyVideoCall
+              roomUrl={dailyRoomUrl}
+              onLeave={() => setShowVideoCall(false)}
             />
           </div>
         )}
 
         <Button
-          onClick={() => setShowVideoCall(!showVideoCall)}
+          onClick={handleToggleVideoCall}
           variant={showVideoCall ? "default" : "outline"}
           className="w-full mb-4 bg-white/10 border-white/20 text-white hover:bg-white/20"
         >
@@ -326,15 +363,14 @@ const SessionPage = () => {
         {isHost ? (
           <Button
             onClick={handleStartSession}
-            disabled={participants.length < 1}
             className="w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-3"
           >
             <Play className="mr-2 h-5 w-5" />
-            {t('session.startQuiz')}
+            Start Quiz
           </Button>
         ) : (
           <div className="text-center text-white/60">
-            {t('session.waitingForHost')}
+            Waiting for host to start the quiz...
           </div>
         )}
       </div>

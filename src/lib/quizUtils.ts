@@ -97,7 +97,17 @@ export const getQuestionsForQuiz = (
   difficulty: string
 ): NormalizedQuestion[] => {
   const gradeKey = grade.toString();
-  const subjectData = questionSets[gradeKey]?.[subject];
+  
+  // Normalize subject name to match questionSets keys
+  const subjectMap: Record<string, string> = {
+    "Civics": "Civic Education",
+    "Civic Education": "Civic Education",
+  };
+  
+  const normalizedSubject = subjectMap[subject] || subject;
+  const subjectData = questionSets[gradeKey]?.[normalizedSubject];
+  
+  console.log('Looking for questions - Grade:', gradeKey, 'Subject:', normalizedSubject, 'Found:', !!subjectData);
   
   if (!subjectData) return [];
 
