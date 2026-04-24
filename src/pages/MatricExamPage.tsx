@@ -49,21 +49,8 @@ const MatricExamPage = () => {
                 <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg group-hover:scale-110 transition-all duration-300">
                   <Target className="h-8 w-8 text-white" />
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0">
-                      <Sparkles className="h-3 w-3 mr-1" />
-                      90% Predicted
-                    </Badge>
-                    <Badge variant="outline" className="border-emerald-500/30 text-emerald-300">
-                      New
-                    </Badge>
-                  </div>
-                  <h3 className="text-xl font-bold text-white mb-1">2018 E.C. Predicted Questions</h3>
-                  <p className="text-white/60 text-sm">
-                    Practice with questions that have a 90% probability of appearing in the next matric exam
-                  </p>
-                </div>
+
+            
                 <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg group-hover:shadow-emerald-500/30 transition-all duration-300">
                   Start Practice
                   <ArrowLeft className="h-4 w-4 ml-2 rotate-180" />
