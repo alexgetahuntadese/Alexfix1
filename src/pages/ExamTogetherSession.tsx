@@ -40,7 +40,6 @@ const ExamTogetherSession = () => {
   const mode = searchParams.get('mode') || 'matric';
   const year = searchParams.get('year') || '';
   const grade = searchParams.get('grade') || '';
-  const difficulty = searchParams.get('difficulty') || 'medium';
   const subject = searchParams.get('subject') || '';
   
   const [session, setSession] = useState<Session | null>(null);
@@ -72,17 +71,12 @@ const ExamTogetherSession = () => {
     const storedParticipantId = sessionStorage.getItem('examTogetherParticipantId');
     const storedIsHost = sessionStorage.getItem('examTogetherIsHost') === 'true';
     
-    console.log('useEffect called with:', { sessionCode, playerName, storedParticipantId, storedIsHost, hostName, mode, grade, year, subject, difficulty });
-    
     if (sessionCode && playerName) {
       // Join existing session
-      console.log('Joining existing session');
       joinExistingSession(sessionCode, playerName);
     } else if (sessionCode) {
       // Try to load existing session
-      console.log('Loading existing session with code:', sessionCode);
       const currentSession = getSession(sessionCode);
-      console.log('Found session:', currentSession);
       if (currentSession) {
         setParticipantId(storedParticipantId);
         setIsHost(storedIsHost);
@@ -110,7 +104,6 @@ const ExamTogetherSession = () => {
       }
     } else {
       // No session code, create new session
-      console.log('No session code, creating new session');
       createNewSession();
     }
     
@@ -125,19 +118,17 @@ const ExamTogetherSession = () => {
 
   const createNewSession = async () => {
     try {
-      console.log('Creating session with params:', { hostName, mode, grade, year, subject, difficulty });
       const { createSession } = await import('@/lib/sessionUtils');
       const { session: newSession, participant } = await createSession(
         hostName,
         mode === 'grade' ? grade : '12',
         subject,
         mode === 'grade' ? 'all' : year,
-        mode === 'grade' ? difficulty : 'medium',
+        'medium',
         'exam_together',
         mode === 'grade' ? undefined : year
       );
       
-      console.log('Session created:', newSession);
       sessionStorage.setItem('examTogetherParticipantId', participant.id);
       sessionStorage.setItem('examTogetherIsHost', 'true');
       
@@ -253,8 +244,8 @@ const ExamTogetherSession = () => {
         // Matric mode
         questionsList = getMatricQuestions(parseInt(session.year), session.subject, session.session_code);
       } else {
-        // Grade mode - use session difficulty
-        questionsList = getQuestionsForQuiz(session.grade, session.subject, 'all', session.difficulty || 'medium', session.session_code);
+        // Grade mode
+        questionsList = getQuestionsForQuiz(session.grade, session.subject, 'all', 'medium', session.session_code);
       }
       setQuestions(questionsList.slice(0, 10));
     }
@@ -268,8 +259,8 @@ const ExamTogetherSession = () => {
       // Matric mode
       questionsList = getMatricQuestions(parseInt(session.year), session.subject, session.session_code);
     } else {
-      // Grade mode - use session difficulty
-      questionsList = getQuestionsForQuiz(session.grade, session.subject, 'all', session.difficulty || 'medium', session.session_code);
+      // Grade mode
+      questionsList = getQuestionsForQuiz(session.grade, session.subject, 'all', 'medium', session.session_code);
     }
     const selectedQuestions = questionsList.slice(0, 10);
     await startSession(session.id, selectedQuestions);
@@ -282,9 +273,11 @@ const ExamTogetherSession = () => {
       // Host updates the session's question index
       await nextQuestion(session.id, session.current_question_index);
       refreshData();
-    } else if (localQuestionIndex < questions.length - 1) {
+    } else {
       // Non-host only updates their local view
-      setLocalQuestionIndex(localQuestionIndex + 1);
+      if (localQuestionIndex < questions.length - 1) {
+        setLocalQuestionIndex(localQuestionIndex + 1);
+      }
     }
   };
 
