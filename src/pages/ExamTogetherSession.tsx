@@ -3,7 +3,7 @@ import StarField from '@/components/StarField';
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Copy, Play, Users, Video, VideoOff, Clock } from "lucide-react";
+import { ArrowLeft, Copy, Play, Users, Video, VideoOff, Clock, Trophy, Medal, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
   getSession, 
@@ -17,6 +17,7 @@ import {
   type Question 
 } from "@/lib/sessionUtils";
 import { getMatricQuestions } from "@/lib/matricUtils";
+import { getQuestionsForQuiz } from "@/lib/quizUtils";
 import DailyVideoCall from "@/components/DailyVideoCall";
 import { getDailyRoomUrl } from "@/lib/dailyUtils";
 
@@ -36,7 +37,10 @@ const ExamTogetherSession = () => {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const hostName = searchParams.get('hostName') || '';
+  const mode = searchParams.get('mode') || 'matric';
   const year = searchParams.get('year') || '';
+  const grade = searchParams.get('grade') || '';
+  const difficulty = searchParams.get('difficulty') || 'medium';
   const subject = searchParams.get('subject') || '';
   
   const [session, setSession] = useState<Session | null>(null);
@@ -68,37 +72,45 @@ const ExamTogetherSession = () => {
     const storedParticipantId = sessionStorage.getItem('examTogetherParticipantId');
     const storedIsHost = sessionStorage.getItem('examTogetherIsHost') === 'true';
     
+    console.log('useEffect called with:', { sessionCode, playerName, storedParticipantId, storedIsHost, hostName, mode, grade, year, subject, difficulty });
+    
     if (sessionCode && playerName) {
       // Join existing session
+      console.log('Joining existing session');
       joinExistingSession(sessionCode, playerName);
     } else if (sessionCode) {
-      // Already in session, load data
-      setParticipantId(storedParticipantId);
-      setIsHost(storedIsHost);
-      
+      // Try to load existing session
+      console.log('Loading existing session with code:', sessionCode);
       const currentSession = getSession(sessionCode);
+      console.log('Found session:', currentSession);
       if (currentSession) {
+        setParticipantId(storedParticipantId);
+        setIsHost(storedIsHost);
         setSession(currentSession);
         setParticipants(getSessionParticipants(currentSession.id));
+        
+        const interval = setInterval(() => {
+          const updatedSession = getSession(sessionCode);
+          if (updatedSession) {
+            setSession(updatedSession);
+            setParticipants(getSessionParticipants(updatedSession.id));
+          }
+        }, 1000);
+        
+        (window as any).examTogetherInterval = interval;
+        
+        return () => {
+          clearInterval(interval);
+          delete (window as any).examTogetherInterval;
+        };
+      } else {
+        // Session doesn't exist, create new one
+        console.log('Session not found, creating new session');
+        createNewSession();
       }
-      
-      const interval = setInterval(() => {
-        const updatedSession = getSession(sessionCode);
-        if (updatedSession) {
-          setSession(updatedSession);
-          setParticipants(getSessionParticipants(updatedSession.id));
-        }
-      }, 1000);
-      
-      // Store interval ID for cleanup
-      (window as any).examTogetherInterval = interval;
-      
-      return () => {
-        clearInterval(interval);
-        delete (window as any).examTogetherInterval;
-      };
     } else {
-      // Create new session
+      // No session code, create new session
+      console.log('No session code, creating new session');
       createNewSession();
     }
     
@@ -112,40 +124,52 @@ const ExamTogetherSession = () => {
   }, [searchParams]);
 
   const createNewSession = async () => {
-    const { createSession } = await import('@/lib/sessionUtils');
-    const { session: newSession, participant } = await createSession(
-      hostName,
-      '12',
-      subject,
-      year,
-      'medium',
-      'exam_together',
-      year
-    );
-    
-    sessionStorage.setItem('examTogetherParticipantId', participant.id);
-    sessionStorage.setItem('examTogetherIsHost', 'true');
-    
-    const url = new URL(window.location.href);
-    url.searchParams.set('sessionCode', newSession.session_code);
-    window.history.replaceState({}, '', url);
-    
-    setSession(newSession);
-    setParticipants([participant]);
-    setParticipantId(participant.id);
-    setIsHost(true);
-    
-    // Start polling for session updates
-    const interval = setInterval(() => {
-      const updatedSession = getSession(newSession.session_code);
-      if (updatedSession) {
-        setSession(updatedSession);
-        setParticipants(getSessionParticipants(updatedSession.id));
-      }
-    }, 1000);
-    
-    // Store interval ID for cleanup
-    (window as any).examTogetherInterval = interval;
+    try {
+      console.log('Creating session with params:', { hostName, mode, grade, year, subject, difficulty });
+      const { createSession } = await import('@/lib/sessionUtils');
+      const { session: newSession, participant } = await createSession(
+        hostName,
+        mode === 'grade' ? grade : '12',
+        subject,
+        mode === 'grade' ? 'all' : year,
+        mode === 'grade' ? difficulty : 'medium',
+        'exam_together',
+        mode === 'grade' ? undefined : year
+      );
+      
+      console.log('Session created:', newSession);
+      sessionStorage.setItem('examTogetherParticipantId', participant.id);
+      sessionStorage.setItem('examTogetherIsHost', 'true');
+      
+      const url = new URL(window.location.href);
+      url.searchParams.set('sessionCode', newSession.session_code);
+      window.history.replaceState({}, '', url);
+      
+      setSession(newSession);
+      setParticipants([participant]);
+      setParticipantId(participant.id);
+      setIsHost(true);
+      
+      // Start polling for session updates
+      const interval = setInterval(() => {
+        const updatedSession = getSession(newSession.session_code);
+        if (updatedSession) {
+          setSession(updatedSession);
+          setParticipants(getSessionParticipants(updatedSession.id));
+        }
+      }, 1000);
+      
+      // Store interval ID for cleanup
+      (window as any).examTogetherInterval = interval;
+    } catch (error) {
+      console.error('Error creating session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create session. Please try again.",
+        variant: "destructive"
+      });
+      navigate('/exam-together');
+    }
   };
 
   const joinExistingSession = async (sessionCode: string, playerName: string) => {
@@ -224,16 +248,30 @@ const ExamTogetherSession = () => {
     if (session.questions && session.questions.length > 0) {
       setQuestions(session.questions);
     } else {
-      const matricQuestions = getMatricQuestions(parseInt(session.year), session.subject, session.session_code);
-      setQuestions(matricQuestions.slice(0, 10));
+      let questionsList;
+      if (session.year) {
+        // Matric mode
+        questionsList = getMatricQuestions(parseInt(session.year), session.subject, session.session_code);
+      } else {
+        // Grade mode - use session difficulty
+        questionsList = getQuestionsForQuiz(session.grade, session.subject, 'all', session.difficulty || 'medium', session.session_code);
+      }
+      setQuestions(questionsList.slice(0, 10));
     }
   };
 
   const handleStartSession = async () => {
     if (!session) return;
     // Generate questions with seeded random for consistency
-    const matricQuestions = getMatricQuestions(parseInt(session.year), session.subject, session.session_code);
-    const selectedQuestions = matricQuestions.slice(0, 10);
+    let questionsList;
+    if (session.year) {
+      // Matric mode
+      questionsList = getMatricQuestions(parseInt(session.year), session.subject, session.session_code);
+    } else {
+      // Grade mode - use session difficulty
+      questionsList = getQuestionsForQuiz(session.grade, session.subject, 'all', session.difficulty || 'medium', session.session_code);
+    }
+    const selectedQuestions = questionsList.slice(0, 10);
     await startSession(session.id, selectedQuestions);
     refreshData();
   };
@@ -244,11 +282,9 @@ const ExamTogetherSession = () => {
       // Host updates the session's question index
       await nextQuestion(session.id, session.current_question_index);
       refreshData();
-    } else {
+    } else if (localQuestionIndex < questions.length - 1) {
       // Non-host only updates their local view
-      if (localQuestionIndex < questions.length - 1) {
-        setLocalQuestionIndex(localQuestionIndex + 1);
-      }
+      setLocalQuestionIndex(localQuestionIndex + 1);
     }
   };
 
@@ -293,32 +329,73 @@ const ExamTogetherSession = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-950 via-violet-900 to-purple-950 flex items-center justify-center overflow-hidden relative">
         <StarField starCount={30} shootingCount={2} />
-        <div className="text-white text-xl">Loading...</div>
+        <div className="text-white text-xl">Creating session...</div>
       </div>
     );
   }
 
   if (session.status === 'completed') {
+    const winner = participants.length > 0 ? participants[0] : null;
+    const isWinner = winner && participantId === winner.id;
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-950 via-violet-900 to-purple-950 p-4 overflow-hidden relative">
-        <StarField starCount={30} shootingCount={2} />
+        <StarField starCount={50} shootingCount={5} />
         <div className="max-w-2xl mx-auto">
           <Card className="bg-white/10 backdrop-blur-md border-white/20">
             <CardHeader className="text-center">
-              <CardTitle className="text-3xl text-white">Exam Complete!</CardTitle>
+              {isWinner ? (
+                <>
+                  <div className="mx-auto mb-4 animate-bounce">
+                    <Trophy className="h-24 w-24 text-yellow-400 mx-auto" />
+                  </div>
+                  <CardTitle className="text-4xl text-white mb-2">🎉 Congratulations! 🎉</CardTitle>
+                  <p className="text-2xl text-yellow-300 font-bold">You are the Champion!</p>
+                </>
+              ) : (
+                <>
+                  <div className="mx-auto mb-4">
+                    <Medal className="h-20 w-20 text-amber-400 mx-auto" />
+                  </div>
+                  <CardTitle className="text-3xl text-white mb-2">Exam Complete!</CardTitle>
+                  <p className="text-xl text-white/80">
+                    {winner ? `${winner.player_name} wins with ${winner.score} points!` : 'Great effort everyone!'}
+                  </p>
+                </>
+              )}
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {participants.map((p) => (
-                  <div key={p.id} className="flex justify-between items-center bg-white/10 rounded-lg p-3">
-                    <span className="text-white">{p.player_name}</span>
-                    <span className="text-amber-300 font-bold">{p.score} points</span>
+              <div className="space-y-3 mb-6">
+                {participants.map((p, index) => (
+                  <div 
+                    key={p.id} 
+                    className={`flex justify-between items-center rounded-lg p-4 ${
+                      index === 0 
+                        ? 'bg-gradient-to-r from-yellow-500/30 to-amber-500/30 border-2 border-yellow-400' 
+                        : index === 1 
+                        ? 'bg-gradient-to-r from-gray-400/30 to-slate-400/30 border-2 border-gray-300'
+                        : index === 2
+                        ? 'bg-gradient-to-r from-orange-600/30 to-amber-700/30 border-2 border-orange-500'
+                        : 'bg-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {index === 0 && <Trophy className="h-6 w-6 text-yellow-400" />}
+                      {index === 1 && <Medal className="h-6 w-6 text-gray-300" />}
+                      {index === 2 && <Star className="h-6 w-6 text-orange-400" />}
+                      <span className={`text-white font-semibold ${index === 0 ? 'text-lg' : ''}`}>
+                        {p.player_name}
+                      </span>
+                    </div>
+                    <span className={`font-bold ${index === 0 ? 'text-yellow-300 text-xl' : 'text-amber-300'}`}>
+                      {p.score} points
+                    </span>
                   </div>
                 ))}
               </div>
               <Button
                 onClick={() => navigate('/')}
-                className="w-full mt-6 bg-gradient-to-r from-purple-500 to-pink-500"
+                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3"
               >
                 Back to Home
               </Button>

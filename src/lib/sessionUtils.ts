@@ -1,7 +1,7 @@
 // In-memory session management (localStorage-based for demo)
 // This works without database tables
 
-interface Session {
+export interface Session {
   id: string;
   session_code: string;
   host_name: string;
@@ -17,7 +17,7 @@ interface Session {
   questions?: Question[];
 }
 
-interface Question {
+export interface Question {
   question: string;
   options: string[];
   correctAnswer: string;

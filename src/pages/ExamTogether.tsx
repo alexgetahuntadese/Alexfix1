@@ -7,20 +7,63 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Users, Calendar, Plus, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getExamTogetherSessions, getSessionParticipants, clearOldSessions } from "@/lib/sessionUtils";
+import { grade9Subjects } from "@/data/grade9Subjects";
+import { grade10Subjects } from "@/data/grade10Subjects";
+import { grade11Subjects } from "@/data/grade11Subjects";
 
 const ExamTogether = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [view, setView] = useState<'list' | 'create'>('list');
   const [hostName, setHostName] = useState("");
+  const [mode, setMode] = useState<'grade' | 'matric'>('matric');
   const [year, setYear] = useState("");
+  const [grade, setGrade] = useState("");
+  const [difficulty, setDifficulty] = useState("");
   const [subject, setSubject] = useState("");
-  const [step, setStep] = useState<'name' | 'year' | 'subject'>('name');
+  const [step, setStep] = useState<'name' | 'mode' | 'year' | 'grade' | 'difficulty' | 'subject'>('name');
   const [availableRooms, setAvailableRooms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const years = ["2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024"];
-  const subjects = ["Mathematics", "Physics", "Chemistry", "Biology", "English", "History", "Geography", "Civics", "IT"];
+  const years = ["2013", "2014", "2015", "2016", "2017"];
+  const grades = ["9", "10", "11", "12"];
+  const difficulties = ["easy", "medium", "hard"];
+  
+  // Get subjects based on grade
+  const getGradeSubjects = (grade: string) => {
+    switch(grade) {
+      case "9":
+        return grade9Subjects.map(s => s.name);
+      case "10":
+        return grade10Subjects.map(s => s.name);
+      case "11":
+        return grade11Subjects.map(s => s.name);
+      case "12":
+        return ["Mathematics", "Physics", "Chemistry", "Biology", "English", "Amharic", "Geography", "History", "Civics", "Economics", "IT"];
+      default:
+        return [];
+    }
+  };
+  
+  // Get subjects based on matric year
+  const getMatricSubjects = (year: string) => {
+    // Matric exams have Natural Science and Social Science streams
+    const naturalScience = ["Mathematics", "Physics", "Chemistry", "Biology", "English"];
+    const socialScience = ["Civics", "Economics", "English", "Geography", "History", "Mathematics"];
+    return [...new Set([...naturalScience, ...socialScience])].sort();
+  };
+  
+  // Get available subjects based on current mode and selection
+  const getAvailableSubjects = () => {
+    if (mode === 'matric' && year) {
+      return getMatricSubjects(year);
+    } else if (mode === 'grade' && grade) {
+      return getGradeSubjects(grade);
+    }
+    return [];
+  };
+  
+  const availableSubjects = getAvailableSubjects();
 
   const loadRooms = () => {
     setIsLoading(true);
@@ -50,7 +93,47 @@ const ExamTogether = () => {
       });
       return;
     }
-    setStep('year');
+    setStep('mode');
+  };
+
+  const handleModeSubmit = () => {
+    if (!mode) {
+      toast({
+        title: "Error",
+        description: "Please select a mode",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (mode === 'matric') {
+      setStep('year');
+    } else {
+      setStep('grade');
+    }
+  };
+
+  const handleGradeSubmit = () => {
+    if (!grade) {
+      toast({
+        title: "Error",
+        description: "Please select a grade",
+        variant: "destructive"
+      });
+      return;
+    }
+    setStep('difficulty');
+  };
+
+  const handleDifficultySubmit = () => {
+    if (!difficulty) {
+      toast({
+        title: "Error",
+        description: "Please select a difficulty",
+        variant: "destructive"
+      });
+      return;
+    }
+    setStep('subject');
   };
 
   const handleYearSubmit = () => {
@@ -58,6 +141,18 @@ const ExamTogether = () => {
       toast({
         title: "Error",
         description: "Please select a year",
+        variant: "destructive"
+      });
+      return;
+    }
+    setStep('subject');
+  };
+
+  const handleGradeSubmit = () => {
+    if (!grade) {
+      toast({
+        title: "Error",
+        description: "Please select a grade",
         variant: "destructive"
       });
       return;
@@ -74,8 +169,12 @@ const ExamTogether = () => {
       });
       return;
     }
-    // Navigate to session creation with matric data
-    navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&year=${year}&subject=${subject}`);
+    // Navigate to session creation with mode-specific data
+    if (mode === 'matric') {
+      navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&mode=matric&year=${year}&subject=${subject}`);
+    } else {
+      navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&mode=grade&grade=${grade}&difficulty=${difficulty}&subject=${subject}`);
+    }
   };
 
   const handleJoinRoom = (sessionCode: string) => {
@@ -162,7 +261,7 @@ const ExamTogether = () => {
                   <CardHeader>
                     <CardTitle className="text-lg text-white">{room.subject}</CardTitle>
                     <CardDescription className="text-blue-100">
-                      {room.year} Matric Exam
+                      {room.year ? `${room.year} Matric Exam` : `Grade ${room.grade} Exam`}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -240,6 +339,29 @@ const ExamTogether = () => {
               </>
             )}
 
+            {step === 'mode' && (
+              <>
+                <div>
+                  <label className="text-sm text-white/80 mb-2 block">Select Exam Type</label>
+                  <Select value={mode} onValueChange={(value) => setMode(value as 'grade' | 'matric')}>
+                    <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                      <SelectValue placeholder="Select mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="matric">Matric Exam</SelectItem>
+                      <SelectItem value="grade">Grade Level</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handleModeSubmit}
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3"
+                >
+                  Continue
+                </Button>
+              </>
+            )}
+
             {step === 'year' && (
               <>
                 <div>
@@ -267,6 +389,54 @@ const ExamTogether = () => {
               </>
             )}
 
+            {step === 'grade' && (
+              <>
+                <div>
+                  <label className="text-sm text-white/80 mb-2 block">Select Grade Level</label>
+                  <Select value={grade} onValueChange={setGrade}>
+                    <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                      <SelectValue placeholder="Select grade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {grades.map((g) => (
+                        <SelectItem key={g} value={g}>Grade {g}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handleGradeSubmit}
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3"
+                >
+                  Continue
+                </Button>
+              </>
+            )}
+
+            {step === 'difficulty' && (
+              <>
+                <div>
+                  <label className="text-sm text-white/80 mb-2 block">Select Difficulty</label>
+                  <Select value={difficulty} onValueChange={setDifficulty}>
+                    <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                      <SelectValue placeholder="Select difficulty" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {difficulties.map((d) => (
+                        <SelectItem key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handleDifficultySubmit}
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3"
+                >
+                  Continue
+                </Button>
+              </>
+            )}
+
             {step === 'subject' && (
               <>
                 <div>
@@ -276,9 +446,15 @@ const ExamTogether = () => {
                       <SelectValue placeholder="Select subject" />
                     </SelectTrigger>
                     <SelectContent>
-                      {subjects.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
+                      {availableSubjects.length > 0 ? (
+                        availableSubjects.map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))
+                      ) : (
+                        <div className="p-2 text-white/60 text-sm">
+                          Please select {mode === 'matric' ? 'a year' : 'a grade'} first
+                        </div>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
