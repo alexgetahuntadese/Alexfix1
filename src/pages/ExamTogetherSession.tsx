@@ -11,24 +11,16 @@ import {
   startSession, 
   endSession, 
   nextQuestion, 
-  submitAnswer 
+  updateQuestionIndex,
+  submitAnswer,
+  type Session,
+  type Question 
 } from "@/lib/sessionUtils";
 import { getMatricQuestions } from "@/lib/matricUtils";
 import DailyVideoCall from "@/components/DailyVideoCall";
 import { getDailyRoomUrl } from "@/lib/dailyUtils";
 
 type SessionStatus = 'waiting' | 'in_progress' | 'completed';
-
-interface Session {
-  id: string;
-  session_code: string;
-  host_name: string;
-  status: SessionStatus;
-  year: string;
-  subject: string;
-  current_question_index: number;
-  created_at: string;
-}
 
 interface Participant {
   id: string;
@@ -37,13 +29,6 @@ interface Participant {
   score: number;
   is_host: boolean;
   joined_at: string;
-}
-
-interface Question {
-  question: string;
-  options: string[];
-  correctAnswer: string;
-  explanation?: string;
 }
 
 const ExamTogetherSession = () => {
@@ -64,6 +49,7 @@ const ExamTogetherSession = () => {
   const [dailyRoomUrl, setDailyRoomUrl] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(20);
   const [isTimerActive, setIsTimerActive] = useState(false);
+  const [localQuestionIndex, setLocalQuestionIndex] = useState(0);
 
   const refreshData = useCallback(() => {
     const sessionCode = searchParams.get('sessionCode');
@@ -78,10 +64,15 @@ const ExamTogetherSession = () => {
 
   useEffect(() => {
     const sessionCode = searchParams.get('sessionCode');
+    const playerName = searchParams.get('playerName');
     const storedParticipantId = sessionStorage.getItem('examTogetherParticipantId');
     const storedIsHost = sessionStorage.getItem('examTogetherIsHost') === 'true';
     
-    if (sessionCode) {
+    if (sessionCode && playerName) {
+      // Join existing session
+      joinExistingSession(sessionCode, playerName);
+    } else if (sessionCode) {
+      // Already in session, load data
       setParticipantId(storedParticipantId);
       setIsHost(storedIsHost);
       
@@ -98,11 +89,26 @@ const ExamTogetherSession = () => {
           setParticipants(getSessionParticipants(updatedSession.id));
         }
       }, 1000);
-      return () => clearInterval(interval);
+      
+      // Store interval ID for cleanup
+      (window as any).examTogetherInterval = interval;
+      
+      return () => {
+        clearInterval(interval);
+        delete (window as any).examTogetherInterval;
+      };
     } else {
       // Create new session
       createNewSession();
     }
+    
+    // Cleanup on unmount
+    return () => {
+      if ((window as any).examTogetherInterval) {
+        clearInterval((window as any).examTogetherInterval);
+        delete (window as any).examTogetherInterval;
+      }
+    };
   }, [searchParams]);
 
   const createNewSession = async () => {
@@ -112,7 +118,9 @@ const ExamTogetherSession = () => {
       '12',
       subject,
       year,
-      'medium'
+      'medium',
+      'exam_together',
+      year
     );
     
     sessionStorage.setItem('examTogetherParticipantId', participant.id);
@@ -126,6 +134,58 @@ const ExamTogetherSession = () => {
     setParticipants([participant]);
     setParticipantId(participant.id);
     setIsHost(true);
+    
+    // Start polling for session updates
+    const interval = setInterval(() => {
+      const updatedSession = getSession(newSession.session_code);
+      if (updatedSession) {
+        setSession(updatedSession);
+        setParticipants(getSessionParticipants(updatedSession.id));
+      }
+    }, 1000);
+    
+    // Store interval ID for cleanup
+    (window as any).examTogetherInterval = interval;
+  };
+
+  const joinExistingSession = async (sessionCode: string, playerName: string) => {
+    const { joinSession } = await import('@/lib/sessionUtils');
+    try {
+      const { session: existingSession, participant } = await joinSession(sessionCode, playerName);
+      
+      sessionStorage.setItem('examTogetherParticipantId', participant.id);
+      sessionStorage.setItem('examTogetherIsHost', 'false');
+      
+      setSession(existingSession);
+      setParticipantId(participant.id);
+      setIsHost(false);
+      setParticipants(getSessionParticipants(existingSession.id));
+      
+      // Update URL to include session code
+      const url = new URL(window.location.href);
+      url.searchParams.set('sessionCode', sessionCode);
+      url.searchParams.delete('playerName');
+      window.history.replaceState({}, '', url);
+      
+      // Start polling for session updates
+      const interval = setInterval(() => {
+        const updatedSession = getSession(sessionCode);
+        if (updatedSession) {
+          setSession(updatedSession);
+          setParticipants(getSessionParticipants(updatedSession.id));
+        }
+      }, 1000);
+      
+      // Store interval ID for cleanup
+      (window as any).examTogetherInterval = interval;
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to join session",
+        variant: "destructive"
+      });
+      navigate('/exam-together');
+    }
   };
 
   useEffect(() => {
@@ -136,7 +196,7 @@ const ExamTogetherSession = () => {
 
   useEffect(() => {
     setHasAnswered(false);
-  }, [session?.current_question_index]);
+  }, [session?.current_question_index, localQuestionIndex]);
 
   useEffect(() => {
     if (isTimerActive && timeLeft > 0) {
@@ -160,20 +220,36 @@ const ExamTogetherSession = () => {
 
   const loadQuestions = () => {
     if (!session) return;
-    const matricQuestions = getMatricQuestions(parseInt(session.year), session.subject);
-    setQuestions(matricQuestions.slice(0, 10));
+    // Use questions stored in session if available, otherwise generate them
+    if (session.questions && session.questions.length > 0) {
+      setQuestions(session.questions);
+    } else {
+      const matricQuestions = getMatricQuestions(parseInt(session.year), session.subject, session.session_code);
+      setQuestions(matricQuestions.slice(0, 10));
+    }
   };
 
   const handleStartSession = async () => {
     if (!session) return;
-    await startSession(session.id);
+    // Generate questions with seeded random for consistency
+    const matricQuestions = getMatricQuestions(parseInt(session.year), session.subject, session.session_code);
+    const selectedQuestions = matricQuestions.slice(0, 10);
+    await startSession(session.id, selectedQuestions);
     refreshData();
   };
 
   const handleNextQuestion = async () => {
     if (!session) return;
-    await nextQuestion(session.id, session.current_question_index);
-    refreshData();
+    if (isHost) {
+      // Host updates the session's question index
+      await nextQuestion(session.id, session.current_question_index);
+      refreshData();
+    } else {
+      // Non-host only updates their local view
+      if (localQuestionIndex < questions.length - 1) {
+        setLocalQuestionIndex(localQuestionIndex + 1);
+      }
+    }
   };
 
   const handleEndSession = async () => {
@@ -254,8 +330,10 @@ const ExamTogetherSession = () => {
   }
 
   if (session.status === 'in_progress' && questions.length > 0) {
-    const currentQuestion = questions[session.current_question_index];
-    const isLastQuestion = session.current_question_index >= questions.length - 1;
+    // Host uses session index, non-host uses local index
+    const currentIndex = isHost ? session.current_question_index : localQuestionIndex;
+    const currentQuestion = questions[currentIndex];
+    const isLastQuestion = currentIndex >= questions.length - 1;
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-950 via-violet-900 to-purple-950 p-4 overflow-hidden relative">
@@ -263,7 +341,7 @@ const ExamTogetherSession = () => {
         <div className="max-w-4xl mx-auto">
           <div className="flex justify-between items-center mb-4">
             <div className="text-white">
-              Question {session.current_question_index + 1} / {questions.length}
+              Question {currentIndex + 1} / {questions.length}
             </div>
             <div className="text-white flex items-center gap-2">
               <div className="flex items-center gap-2 bg-white/10 px-3 py-1 rounded-full">
@@ -319,19 +397,34 @@ const ExamTogetherSession = () => {
                 </CardContent>
               </Card>
               
-              {isHost && (
-                <div className="mt-4 flex gap-2">
-                  {!isLastQuestion ? (
-                    <Button onClick={handleNextQuestion} className="flex-1 bg-blue-500 hover:bg-blue-600">
-                      Next Question
-                    </Button>
-                  ) : (
+              <div className="mt-4 flex gap-2">
+                {currentIndex > 0 && (
+                  <Button 
+                    onClick={() => {
+                      if (isHost && session) {
+                        updateQuestionIndex(session.id, session.current_question_index - 1);
+                        refreshData();
+                      } else {
+                        setLocalQuestionIndex(localQuestionIndex - 1);
+                      }
+                    }}
+                    className="flex-1 bg-gray-500 hover:bg-gray-600"
+                  >
+                    Previous
+                  </Button>
+                )}
+                {!isLastQuestion ? (
+                  <Button onClick={handleNextQuestion} className="flex-1 bg-blue-500 hover:bg-blue-600">
+                    Next Question
+                  </Button>
+                ) : (
+                  isHost && (
                     <Button onClick={handleEndSession} className="flex-1 bg-green-500 hover:bg-green-600">
                       End Exam
                     </Button>
-                  )}
-                </div>
-              )}
+                  )
+                )}
+              </div>
             </div>
 
             <div>

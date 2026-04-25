@@ -43,6 +43,7 @@ const JoinPage = lazy(() => import("./pages/JoinPage"));
 const SessionPage = lazy(() => import("./pages/SessionPage"));
 const ExamTogether = lazy(() => import("./pages/ExamTogether"));
 const ExamTogetherSession = lazy(() => import("./pages/ExamTogetherSession"));
+const ExamTogetherJoin = lazy(() => import("./pages/ExamTogetherJoin"));
 
 // Loading component for lazy loaded routes
 const PageLoader = () => (
@@ -245,6 +246,11 @@ const App = () => (
                 <Route path="/exam-together-session" element={
                   <Suspense fallback={<PageLoader />}>
                     <ExamTogetherSession />
+                  </Suspense>
+                } />
+                <Route path="/exam-together-join" element={
+                  <Suspense fallback={<PageLoader />}>
+                    <ExamTogetherJoin />
                   </Suspense>
                 } />
               </Routes>

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Users, Calendar, Plus, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { getExamTogetherSessions, getSessionParticipants } from "@/lib/sessionUtils";
+import { getExamTogetherSessions, getSessionParticipants, clearOldSessions } from "@/lib/sessionUtils";
 
 const ExamTogether = () => {
   const navigate = useNavigate();
@@ -34,6 +34,8 @@ const ExamTogether = () => {
   };
 
   useEffect(() => {
+    // Clear old completed sessions on page load
+    clearOldSessions();
     loadRooms();
     const interval = setInterval(loadRooms, 3000);
     return () => clearInterval(interval);
@@ -130,14 +132,23 @@ const ExamTogether = () => {
                 Create Room
               </Button>
             </div>
-            <Button
-              onClick={loadRooms}
-              variant="outline"
-              className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
+            <div className="flex gap-4">
+              <Button
+                onClick={loadRooms}
+                variant="outline"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+              <Button
+                onClick={() => navigate('/exam-together-join')}
+                variant="outline"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                Join with Code
+              </Button>
+            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

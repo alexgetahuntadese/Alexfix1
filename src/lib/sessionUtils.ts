@@ -14,6 +14,14 @@ interface Session {
   created_at: string;
   session_type: 'quiz' | 'exam_together';
   year?: string;
+  questions?: Question[];
+}
+
+interface Question {
+  question: string;
+  options: string[];
+  correctAnswer: string;
+  explanation?: string;
 }
 
 interface Participant {
@@ -163,6 +171,22 @@ export const getExamTogetherSessions = (): Session[] => {
   return sessions.filter(s => s.session_type === 'exam_together' && s.status === 'waiting');
 };
 
+export const clearOldSessions = () => {
+  const sessions = getSessions();
+  const activeSessions = sessions.filter(s => s.status !== 'completed');
+  saveSessions(activeSessions);
+  
+  // Also clear old participants and answers for completed sessions
+  const activeSessionIds = activeSessions.map(s => s.id);
+  const participants = getParticipants();
+  const activeParticipants = participants.filter(p => activeSessionIds.includes(p.session_id));
+  saveParticipants(activeParticipants);
+  
+  const answers = getAnswers();
+  const activeAnswers = answers.filter(a => activeSessionIds.includes(a.session_id));
+  saveAnswers(activeAnswers);
+};
+
 export const getSessionParticipants = (sessionId: string): Participant[] => {
   const participants = getParticipants();
   return participants
@@ -170,12 +194,15 @@ export const getSessionParticipants = (sessionId: string): Participant[] => {
     .sort((a, b) => b.score - a.score);
 };
 
-export const startSession = async (sessionId: string) => {
+export const startSession = async (sessionId: string, questions?: Question[]) => {
   const sessions = getSessions();
   const index = sessions.findIndex(s => s.id === sessionId);
   if (index !== -1) {
     sessions[index].status = 'in_progress';
     sessions[index].current_question_index = 0;
+    if (questions) {
+      sessions[index].questions = questions;
+    }
     saveSessions(sessions);
   }
 };
@@ -183,10 +210,19 @@ export const startSession = async (sessionId: string) => {
 export const nextQuestion = async (sessionId: string, currentIndex: number) => {
   const sessions = getSessions();
   const index = sessions.findIndex(s => s.id === sessionId);
-  if (index !== -1) {
-    sessions[index].current_question_index = currentIndex + 1;
-    saveSessions(sessions);
-  }
+  if (index === -1) return;
+
+  sessions[index].current_question_index = currentIndex + 1;
+  saveSessions(sessions);
+};
+
+export const updateQuestionIndex = async (sessionId: string, newIndex: number) => {
+  const sessions = getSessions();
+  const index = sessions.findIndex(s => s.id === sessionId);
+  if (index === -1) return;
+
+  sessions[index].current_question_index = newIndex;
+  saveSessions(sessions);
 };
 
 export const endSession = async (sessionId: string) => {
