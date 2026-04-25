@@ -12,6 +12,8 @@ interface Session {
   difficulty: string;
   current_question_index: number;
   created_at: string;
+  session_type: 'quiz' | 'exam_together';
+  year?: string;
 }
 
 interface Participant {
@@ -80,7 +82,9 @@ export const createSession = async (
   grade: string,
   subject: string,
   chapterId: string,
-  difficulty: string
+  difficulty: string,
+  sessionType: 'quiz' | 'exam_together' = 'quiz',
+  year?: string
 ) => {
   const sessionCode = generateSessionCode();
   const sessionId = generateId();
@@ -95,15 +99,14 @@ export const createSession = async (
     chapter_id: chapterId,
     difficulty,
     current_question_index: 0,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    session_type: sessionType,
+    year,
   };
 
   const sessions = getSessions();
   sessions.push(session);
   saveSessions(sessions);
-
-  console.log('Session created with code:', sessionCode);
-  console.log('All sessions after creation:', sessions.map(s => s.session_code));
 
   const participant: Participant = {
     id: generateId(),
@@ -153,6 +156,11 @@ export const joinSession = async (sessionCode: string, playerName: string) => {
 export const getSession = (sessionCode: string): Session | null => {
   const sessions = getSessions();
   return sessions.find(s => s.session_code === sessionCode) || null;
+};
+
+export const getExamTogetherSessions = (): Session[] => {
+  const sessions = getSessions();
+  return sessions.filter(s => s.session_type === 'exam_together' && s.status === 'waiting');
 };
 
 export const getSessionParticipants = (sessionId: string): Participant[] => {

@@ -1,6 +1,6 @@
 import { motion, memo } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Sparkles, Zap } from "lucide-react";
+import { Sparkles, Zap, Users } from "lucide-react";
 
 const Index = () => {
   const menuItems = [
@@ -9,6 +9,7 @@ const Index = () => {
     { title: "Matric", route: "/matric" },
     { title: "2018 Predicted Matric", route: "/predicted-matric" },
     { title: "Career", route: "/career-simulator" },
+    { title: "Exam Together", route: "/exam-together", icon: Users },
   ];
 
   return (
@@ -59,9 +60,12 @@ const Index = () => {
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300"></div>
                   <div className="relative bg-slate-800/50 backdrop-blur-xl p-6 rounded-2xl border border-amber-400/20 hover:border-amber-400/40 transition-all duration-300 hover:transform hover:scale-105">
-                    <h3 className="text-xl font-bold text-amber-100 group-hover:text-amber-200 transition-colors text-center">
-                      {item.title}
-                    </h3>
+                    <div className="flex flex-col items-center gap-3">
+                      {item.icon && <item.icon className="w-8 h-8 text-amber-300" />}
+                      <h3 className="text-xl font-bold text-amber-100 group-hover:text-amber-200 transition-colors text-center">
+                        {item.title}
+                      </h3>
+                    </div>
                   </div>
                 </Link>
               </motion.div>

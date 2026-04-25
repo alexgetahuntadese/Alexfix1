@@ -90,11 +90,25 @@ const questionSets: Record<string, Record<string, any>> = {
   },
 };
 
+// Seeded random number generator for consistent question order across participants
+const seededRandom = (seed: string) => {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return () => {
+    const x = Math.sin(hash++) * 10000;
+    return x - Math.floor(x);
+  };
+};
+
 export const getQuestionsForQuiz = (
   grade: number,
   subject: string,
   chapterId: string,
-  difficulty: string
+  difficulty: string,
+  sessionCode?: string
 ): NormalizedQuestion[] => {
   const gradeKey = grade.toString();
   
@@ -107,8 +121,6 @@ export const getQuestionsForQuiz = (
   const normalizedSubject = subjectMap[subject] || subject;
   const subjectData = questionSets[gradeKey]?.[normalizedSubject];
   
-  console.log('Looking for questions - Grade:', gradeKey, 'Subject:', normalizedSubject, 'Found:', !!subjectData);
-  
   if (!subjectData) return [];
 
   // Flatten the questions object to an array
@@ -119,6 +131,12 @@ export const getQuestionsForQuiz = (
 
   if (difficulty && difficulty !== "all") {
     normalized = normalized.filter(q => q.difficulty === difficulty.toLowerCase());
+  }
+
+  // Use seeded random if session code is provided for consistent order across participants
+  if (sessionCode) {
+    const random = seededRandom(sessionCode);
+    return normalized.sort(() => random() - 0.5);
   }
 
   // Shuffle and return

@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import StarField from '@/components/StarField';
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Copy, Play, Trophy, Users, Video, VideoOff } from "lucide-react";
+import { ArrowLeft, Copy, Play, Users, Video, VideoOff, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
   getSession, 
@@ -13,12 +13,9 @@ import {
   nextQuestion, 
   submitAnswer 
 } from "@/lib/sessionUtils";
-import { getQuestionsForQuiz } from "@/lib/quizUtils";
-import { getDailyRoomUrl } from "@/lib/dailyUtils";
-import LiveQuizSession from "@/components/session/LiveQuizSession";
-import SessionLeaderboard from "@/components/session/SessionLeaderboard";
+import { getMatricQuestions } from "@/lib/matricUtils";
 import DailyVideoCall from "@/components/DailyVideoCall";
-import { useLanguage } from "@/i18n/LanguageContext";
+import { getDailyRoomUrl } from "@/lib/dailyUtils";
 
 type SessionStatus = 'waiting' | 'in_progress' | 'completed';
 
@@ -27,42 +24,49 @@ interface Session {
   session_code: string;
   host_name: string;
   status: SessionStatus;
-  grade: string;
+  year: string;
   subject: string;
-  chapter_id: string;
-  difficulty: string;
   current_question_index: number;
+  created_at: string;
 }
 
 interface Participant {
   id: string;
+  session_id: string;
   player_name: string;
   score: number;
   is_host: boolean;
+  joined_at: string;
 }
 
-interface NormalizedQuestion {
+interface Question {
   question: string;
   options: string[];
   correctAnswer: string;
+  explanation?: string;
 }
 
-const SessionPage = () => {
-  const { sessionCode } = useParams();
+const ExamTogetherSession = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const hostName = searchParams.get('hostName') || '';
+  const year = searchParams.get('year') || '';
+  const subject = searchParams.get('subject') || '';
   
   const [session, setSession] = useState<Session | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isHost, setIsHost] = useState(false);
   const [participantId, setParticipantId] = useState<string | null>(null);
-  const [questions, setQuestions] = useState<NormalizedQuestion[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [showVideoCall, setShowVideoCall] = useState(false);
   const [dailyRoomUrl, setDailyRoomUrl] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState(20);
+  const [isTimerActive, setIsTimerActive] = useState(false);
 
   const refreshData = useCallback(() => {
+    const sessionCode = searchParams.get('sessionCode');
     if (!sessionCode) return;
     
     const currentSession = getSession(sessionCode);
@@ -70,29 +74,59 @@ const SessionPage = () => {
       setSession(currentSession);
       setParticipants(getSessionParticipants(currentSession.id));
     }
-  }, [sessionCode]);
+  }, [searchParams]);
 
   useEffect(() => {
-    const storedParticipantId = sessionStorage.getItem('participantId');
-    const storedIsHost = sessionStorage.getItem('isHost') === 'true';
-    setParticipantId(storedParticipantId);
-    setIsHost(storedIsHost);
+    const sessionCode = searchParams.get('sessionCode');
+    const storedParticipantId = sessionStorage.getItem('examTogetherParticipantId');
+    const storedIsHost = sessionStorage.getItem('examTogetherIsHost') === 'true';
     
-    const currentSession = getSession(sessionCode);
-    if (currentSession) {
-      setSession(currentSession);
-      setParticipants(getSessionParticipants(currentSession.id));
-    }
-    
-    const interval = setInterval(() => {
-      const updatedSession = getSession(sessionCode);
-      if (updatedSession) {
-        setSession(updatedSession);
-        setParticipants(getSessionParticipants(updatedSession.id));
+    if (sessionCode) {
+      setParticipantId(storedParticipantId);
+      setIsHost(storedIsHost);
+      
+      const currentSession = getSession(sessionCode);
+      if (currentSession) {
+        setSession(currentSession);
+        setParticipants(getSessionParticipants(currentSession.id));
       }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [sessionCode]);
+      
+      const interval = setInterval(() => {
+        const updatedSession = getSession(sessionCode);
+        if (updatedSession) {
+          setSession(updatedSession);
+          setParticipants(getSessionParticipants(updatedSession.id));
+        }
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      // Create new session
+      createNewSession();
+    }
+  }, [searchParams]);
+
+  const createNewSession = async () => {
+    const { createSession } = await import('@/lib/sessionUtils');
+    const { session: newSession, participant } = await createSession(
+      hostName,
+      '12',
+      subject,
+      year,
+      'medium'
+    );
+    
+    sessionStorage.setItem('examTogetherParticipantId', participant.id);
+    sessionStorage.setItem('examTogetherIsHost', 'true');
+    
+    const url = new URL(window.location.href);
+    url.searchParams.set('sessionCode', newSession.session_code);
+    window.history.replaceState({}, '', url);
+    
+    setSession(newSession);
+    setParticipants([participant]);
+    setParticipantId(participant.id);
+    setIsHost(true);
+  };
 
   useEffect(() => {
     if (session?.status === 'in_progress' && questions.length === 0) {
@@ -104,26 +138,36 @@ const SessionPage = () => {
     setHasAnswered(false);
   }, [session?.current_question_index]);
 
+  useEffect(() => {
+    if (isTimerActive && timeLeft > 0) {
+      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (timeLeft === 0 && isTimerActive) {
+      setIsTimerActive(false);
+      // Auto-advance to next question if host
+      if (isHost && session) {
+        handleNextQuestion();
+      }
+    }
+  }, [timeLeft, isTimerActive]);
+
+  useEffect(() => {
+    if (session?.status === 'in_progress' && questions.length > 0) {
+      setTimeLeft(20);
+      setIsTimerActive(true);
+    }
+  }, [session?.current_question_index]);
+
   const loadQuestions = () => {
     if (!session) return;
-    const quizQuestions = getQuestionsForQuiz(
-      parseInt(session.grade),
-      session.subject,
-      session.chapter_id,
-      session.difficulty,
-      session.session_code
-    );
-    setQuestions(quizQuestions.slice(0, 10));
+    const matricQuestions = getMatricQuestions(parseInt(session.year), session.subject);
+    setQuestions(matricQuestions.slice(0, 10));
   };
 
   const handleStartSession = async () => {
     if (!session) return;
-    try {
-      await startSession(session.id);
-      refreshData();
-    } catch (error) {
-      console.error('Error starting session:', error);
-    }
+    await startSession(session.id);
+    refreshData();
   };
 
   const handleNextQuestion = async () => {
@@ -146,14 +190,16 @@ const SessionPage = () => {
   };
 
   const copyCode = () => {
+    const sessionCode = searchParams.get('sessionCode');
     navigator.clipboard.writeText(sessionCode || '');
     toast({ title: 'Code copied!' });
   };
 
   const handleToggleVideoCall = async () => {
-    if (!showVideoCall && !dailyRoomUrl && session) {
+    const sessionCode = searchParams.get('sessionCode');
+    if (!showVideoCall && !dailyRoomUrl && sessionCode) {
       try {
-        const url = await getDailyRoomUrl(session.session_code);
+        const url = await getDailyRoomUrl(sessionCode);
         setDailyRoomUrl(url);
       } catch (error) {
         toast({
@@ -183,13 +229,19 @@ const SessionPage = () => {
         <div className="max-w-2xl mx-auto">
           <Card className="bg-white/10 backdrop-blur-md border-white/20">
             <CardHeader className="text-center">
-              <Trophy className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
-              <CardTitle className="text-3xl text-white">Quiz Complete!</CardTitle>
+              <CardTitle className="text-3xl text-white">Exam Complete!</CardTitle>
             </CardHeader>
             <CardContent>
-              <SessionLeaderboard participants={participants} />
+              <div className="space-y-4">
+                {participants.map((p) => (
+                  <div key={p.id} className="flex justify-between items-center bg-white/10 rounded-lg p-3">
+                    <span className="text-white">{p.player_name}</span>
+                    <span className="text-amber-300 font-bold">{p.score} points</span>
+                  </div>
+                ))}
+              </div>
               <Button
-                onClick={() => navigate('/grades')}
+                onClick={() => navigate('/')}
                 className="w-full mt-6 bg-gradient-to-r from-purple-500 to-pink-500"
               >
                 Back to Home
@@ -214,6 +266,10 @@ const SessionPage = () => {
               Question {session.current_question_index + 1} / {questions.length}
             </div>
             <div className="text-white flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-white/10 px-3 py-1 rounded-full">
+                <Clock className="h-4 w-4" />
+                <span className={timeLeft <= 5 ? "text-red-400 font-bold" : ""}>{timeLeft}s</span>
+              </div>
               <Button
                 onClick={handleToggleVideoCall}
                 variant={showVideoCall ? "default" : "outline"}
@@ -239,13 +295,29 @@ const SessionPage = () => {
 
           <div className="grid md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
-              {currentQuestion && (
-                <LiveQuizSession
-                  question={currentQuestion}
-                  onAnswer={handleAnswerSubmit}
-                  hasAnswered={hasAnswered}
-                />
-              )}
+              <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                <CardContent className="p-6">
+                  <h3 className="text-xl text-white mb-6">{currentQuestion.question}</h3>
+                  <div className="space-y-3">
+                    {currentQuestion.options.map((option, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleAnswerSubmit(option, option === currentQuestion.correctAnswer)}
+                        disabled={hasAnswered}
+                        className={`w-full text-left p-4 rounded-lg border transition-all ${
+                          hasAnswered
+                            ? option === currentQuestion.correctAnswer
+                              ? 'bg-green-500/30 border-green-500 text-white'
+                              : 'bg-white/5 border-white/20 text-white/50'
+                            : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
               
               {isHost && (
                 <div className="mt-4 flex gap-2">
@@ -255,7 +327,7 @@ const SessionPage = () => {
                     </Button>
                   ) : (
                     <Button onClick={handleEndSession} className="flex-1 bg-green-500 hover:bg-green-600">
-                      End Quiz
+                      End Exam
                     </Button>
                   )}
                 </div>
@@ -263,7 +335,27 @@ const SessionPage = () => {
             </div>
 
             <div>
-              <SessionLeaderboard participants={participants} />
+              <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                <CardHeader>
+                  <CardTitle className="text-lg text-white flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Players ({participants.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {participants.map((p) => (
+                      <div
+                        key={p.id}
+                        className="flex items-center justify-between bg-white/10 rounded-lg p-3"
+                      >
+                        <span className="text-white">{p.player_name}</span>
+                        <span className="text-amber-300 font-bold">{p.score}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
@@ -271,13 +363,14 @@ const SessionPage = () => {
     );
   }
 
+  // Waiting room
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-violet-900 to-purple-950 p-4 overflow-hidden relative">
       <StarField starCount={30} shootingCount={2} />
       <div className="max-w-md mx-auto">
         <Button
           variant="ghost"
-          onClick={() => navigate("/grades")}
+          onClick={() => navigate("/")}
           className="text-white hover:bg-white/10 mb-6"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -329,9 +422,8 @@ const SessionPage = () => {
         <Card className="bg-white/10 backdrop-blur-md border-white/20 mb-4">
           <CardContent className="pt-4">
             <div className="text-white/80 text-sm space-y-1">
-              <p>Grade: {session.grade}</p>
+              <p>Year: {session.year}</p>
               <p>Subject: {session.subject}</p>
-              <p>Difficulty: {session.difficulty}</p>
             </div>
           </CardContent>
         </Card>
@@ -360,11 +452,11 @@ const SessionPage = () => {
             className="w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-3"
           >
             <Play className="mr-2 h-5 w-5" />
-            Start Quiz
+            Start Exam
           </Button>
         ) : (
           <div className="text-center text-white/60">
-            Waiting for host to start the quiz...
+            Waiting for host to start the exam...
           </div>
         )}
       </div>
@@ -372,4 +464,4 @@ const SessionPage = () => {
   );
 };
 
-export default SessionPage;
+export default ExamTogetherSession;
