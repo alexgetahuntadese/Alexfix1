@@ -17,7 +17,8 @@ const ExamTogether = () => {
   const [year, setYear] = useState("");
   const [grade, setGrade] = useState("");
   const [subject, setSubject] = useState("");
-  const [step, setStep] = useState<'name' | 'mode' | 'year' | 'grade' | 'subject'>('name');
+  const [step, setStep] = useState<'name' | 'mode' | 'year' | 'grade' | 'subject' | 'summary'>('name');
+  const [isCreating, setIsCreating] = useState(false);
   const [availableRooms, setAvailableRooms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -122,11 +123,25 @@ const ExamTogether = () => {
       });
       return;
     }
-    // Navigate to session creation with mode-specific data
-    if (mode === 'matric') {
-      navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&mode=matric&year=${year}&subject=${subject}`);
-    } else {
-      navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&mode=grade&grade=${grade}&subject=${subject}`);
+    setStep('summary');
+  };
+
+  const handleCreateRoom = async () => {
+    setIsCreating(true);
+    try {
+      // Navigate to session creation with mode-specific data
+      if (mode === 'matric') {
+        navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&mode=matric&year=${year}&subject=${subject}`);
+      } else {
+        navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&mode=grade&grade=${grade}&subject=${subject}`);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create room. Please try again.",
+        variant: "destructive"
+      });
+      setIsCreating(false);
     }
   };
 
@@ -330,6 +345,7 @@ const ExamTogether = () => {
               <div className={`h-2 w-2 rounded-full ${step === 'mode' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
               <div className={`h-2 w-2 rounded-full ${step === 'year' || step === 'grade' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
               <div className={`h-2 w-2 rounded-full ${step === 'subject' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
+              <div className={`h-2 w-2 rounded-full ${step === 'summary' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
             </div>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
@@ -479,11 +495,63 @@ const ExamTogether = () => {
                 </div>
                 <Button
                   onClick={handleSubjectSubmit}
-                  className="w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-green-500/30 transition-all hover:scale-105"
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-purple-500/30 transition-all hover:scale-105"
                 >
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Create Room
+                  Continue
                 </Button>
+              </div>
+            )}
+
+            {step === 'summary' && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <div>
+                  <label className="text-sm text-white/80 mb-3 block flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Review Your Session
+                  </label>
+                  <div className="bg-white/10 rounded-xl p-4 border border-white/20 space-y-3">
+                    <div className="flex justify-between text-white">
+                      <span className="text-white/60">Your Name:</span>
+                      <span className="font-medium">{hostName}</span>
+                    </div>
+                    <div className="flex justify-between text-white">
+                      <span className="text-white/60">Mode:</span>
+                      <span className="font-medium capitalize">{mode}</span>
+                    </div>
+                    {mode === 'matric' && (
+                      <div className="flex justify-between text-white">
+                        <span className="text-white/60">Year:</span>
+                        <span className="font-medium">{year}</span>
+                      </div>
+                    )}
+                    {mode === 'grade' && (
+                      <div className="flex justify-between text-white">
+                        <span className="text-white/60">Grade:</span>
+                        <span className="font-medium">Grade {grade}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-white">
+                      <span className="text-white/60">Subject:</span>
+                      <span className="font-medium">{subject}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setStep('subject')}
+                    variant="outline"
+                    className="flex-1 border-white/20 text-white hover:bg-white/10"
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    onClick={handleCreateRoom}
+                    disabled={isCreating}
+                    className="flex-1 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-green-500/30 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isCreating ? 'Creating...' : <><Sparkles className="mr-2 h-5 w-5" /> Create Room</>}
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
