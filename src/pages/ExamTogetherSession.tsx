@@ -255,7 +255,7 @@ const ExamTogetherSession = () => {
         questionsList = getMatricQuestions(parseInt(session.year), session.subject, session.session_code);
       } else {
         // Grade mode
-        questionsList = getQuestionsForQuiz(session.grade, session.subject, 'all', 'medium', session.session_code);
+        questionsList = getQuestionsForQuiz(parseInt(session.grade), session.subject, 'all', 'medium', session.session_code);
       }
       setQuestions(questionsList.slice(0, 10));
     }
@@ -263,18 +263,27 @@ const ExamTogetherSession = () => {
 
   const handleStartSession = async () => {
     if (!session) return;
-    // Generate questions with seeded random for consistency
-    let questionsList;
-    if (session.year) {
-      // Matric mode
-      questionsList = getMatricQuestions(parseInt(session.year), session.subject, session.session_code);
-    } else {
-      // Grade mode
-      questionsList = getQuestionsForQuiz(session.grade, session.subject, 'all', 'medium', session.session_code);
+    try {
+      // Generate questions with seeded random for consistency
+      let questionsList;
+      if (session.year) {
+        // Matric mode
+        questionsList = getMatricQuestions(parseInt(session.year), session.subject, session.session_code);
+      } else {
+        // Grade mode
+        questionsList = getQuestionsForQuiz(parseInt(session.grade), session.subject, 'all', 'medium', session.session_code);
+      }
+      const selectedQuestions = questionsList.slice(0, 10);
+      await startSession(session.id, selectedQuestions);
+      refreshData();
+    } catch (error) {
+      console.error('Error starting session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start exam. Please try again.",
+        variant: "destructive"
+      });
     }
-    const selectedQuestions = questionsList.slice(0, 10);
-    await startSession(session.id, selectedQuestions);
-    refreshData();
   };
 
   const handleNextQuestion = async () => {
