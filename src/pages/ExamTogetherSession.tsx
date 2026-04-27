@@ -71,11 +71,14 @@ const ExamTogetherSession = () => {
     const storedParticipantId = sessionStorage.getItem('examTogetherParticipantId');
     const storedIsHost = sessionStorage.getItem('examTogetherIsHost') === 'true';
     
+    // Check if we have creation parameters (hostName, mode, etc.)
+    const hasCreationParams = hostName && mode && (year || grade) && subject;
+    
     if (sessionCode && playerName) {
       // Join existing session
       joinExistingSession(sessionCode, playerName);
-    } else if (sessionCode) {
-      // Try to load existing session
+    } else if (sessionCode && !hasCreationParams) {
+      // Only sessionCode, no creation params - try to load existing session
       const currentSession = getSession(sessionCode);
       if (currentSession) {
         setParticipantId(storedParticipantId);
@@ -98,12 +101,12 @@ const ExamTogetherSession = () => {
           delete (window as any).examTogetherInterval;
         };
       } else {
-        // Session doesn't exist, create new one
-        console.log('Session not found, creating new session');
-        createNewSession();
+        // Session doesn't exist - redirect to join page with the code
+        console.log('Session not found, redirecting to join page');
+        navigate(`/exam-together-join?sessionCode=${sessionCode}`);
       }
     } else {
-      // No session code, create new session
+      // Either no session code or has creation params - create new session
       createNewSession();
     }
     
@@ -132,6 +135,7 @@ const ExamTogetherSession = () => {
       sessionStorage.setItem('examTogetherParticipantId', participant.id);
       sessionStorage.setItem('examTogetherIsHost', 'true');
       
+      // Update URL with the new session code (replaces any existing sessionCode)
       const url = new URL(window.location.href);
       url.searchParams.set('sessionCode', newSession.session_code);
       window.history.replaceState({}, '', url);
