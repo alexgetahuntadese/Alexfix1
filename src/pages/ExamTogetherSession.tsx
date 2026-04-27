@@ -3,7 +3,7 @@ import StarField from '@/components/StarField';
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Copy, Play, Users, Video, VideoOff, Clock, Trophy, Medal, Star, Sparkles } from "lucide-react";
+import { ArrowLeft, Copy, Play, Users, Video, VideoOff, Trophy, Medal, Star, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
   getSession, 
@@ -11,7 +11,6 @@ import {
   startSession, 
   endSession, 
   nextQuestion, 
-  updateQuestionIndex,
   submitAnswer,
   type Session,
   type Question 
@@ -50,8 +49,6 @@ const ExamTogetherSession = () => {
   const [hasAnswered, setHasAnswered] = useState(false);
   const [showVideoCall, setShowVideoCall] = useState(false);
   const [dailyRoomUrl, setDailyRoomUrl] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState(20);
-  const [isTimerActive, setIsTimerActive] = useState(false);
   const [localQuestionIndex, setLocalQuestionIndex] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -223,26 +220,6 @@ const ExamTogetherSession = () => {
     setHasAnswered(false);
   }, [session?.current_question_index, localQuestionIndex]);
 
-  useEffect(() => {
-    if (isTimerActive && timeLeft > 0) {
-      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-      return () => clearTimeout(timer);
-    } else if (timeLeft === 0 && isTimerActive) {
-      setIsTimerActive(false);
-      // Auto-advance to next question if host
-      if (isHost && session) {
-        handleNextQuestion();
-      }
-    }
-  }, [timeLeft, isTimerActive]);
-
-  useEffect(() => {
-    if (session?.status === 'in_progress' && questions.length > 0) {
-      setTimeLeft(20);
-      setIsTimerActive(true);
-    }
-  }, [session?.current_question_index]);
-
   const loadQuestions = () => {
     if (!session) return;
     // Use questions stored in session if available, otherwise generate them
@@ -311,6 +288,16 @@ const ExamTogetherSession = () => {
     setHasAnswered(true);
     await submitAnswer(session.id, participantId, session.current_question_index, selectedAnswer, isCorrect);
     refreshData();
+    
+    // Auto-advance to next question after showing feedback
+    const currentIndex = isHost ? session.current_question_index : localQuestionIndex;
+    const isLastQuestion = currentIndex >= questions.length - 1;
+    
+    if (!isLastQuestion) {
+      setTimeout(() => {
+        handleNextQuestion();
+      }, 1500); // 1.5 second delay to show answer feedback
+    }
   };
 
   const copyCode = () => {
@@ -437,10 +424,6 @@ const ExamTogetherSession = () => {
               Question {currentIndex + 1} / {questions.length}
             </div>
             <div className="text-white flex items-center gap-2">
-              <div className="flex items-center gap-2 bg-white/10 px-3 py-1 rounded-full">
-                <Clock className="h-4 w-4" />
-                <span className={timeLeft <= 5 ? "text-red-400 font-bold" : ""}>{timeLeft}s</span>
-              </div>
               <Button
                 onClick={handleToggleVideoCall}
                 variant={showVideoCall ? "default" : "outline"}
@@ -491,31 +474,10 @@ const ExamTogetherSession = () => {
               </Card>
               
               <div className="mt-4 flex gap-2">
-                {currentIndex > 0 && (
-                  <Button 
-                    onClick={() => {
-                      if (isHost && session) {
-                        updateQuestionIndex(session.id, session.current_question_index - 1);
-                        refreshData();
-                      } else {
-                        setLocalQuestionIndex(localQuestionIndex - 1);
-                      }
-                    }}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600"
-                  >
-                    Previous
+                {isLastQuestion && isHost && (
+                  <Button onClick={handleEndSession} className="flex-1 bg-green-500 hover:bg-green-600">
+                    End Exam
                   </Button>
-                )}
-                {!isLastQuestion ? (
-                  <Button onClick={handleNextQuestion} className="flex-1 bg-blue-500 hover:bg-blue-600">
-                    Next Question
-                  </Button>
-                ) : (
-                  isHost && (
-                    <Button onClick={handleEndSession} className="flex-1 bg-green-500 hover:bg-green-600">
-                      End Exam
-                    </Button>
-                  )
                 )}
               </div>
             </div>

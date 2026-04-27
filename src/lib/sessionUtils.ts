@@ -209,10 +209,10 @@ export const startSession = async (sessionId: string, questions?: Question[]) =>
 
 export const nextQuestion = async (sessionId: string, currentIndex: number) => {
   const sessions = getSessions();
-  const index = sessions.findIndex(s => s.id === sessionId);
-  if (index === -1) return;
+  const sessionIndex = sessions.findIndex(s => s.id === sessionId);
+  if (sessionIndex === -1) return;
 
-  sessions[index].current_question_index = currentIndex + 1;
+  sessions[sessionIndex].current_question_index = currentIndex + 1;
   saveSessions(sessions);
 };
 
