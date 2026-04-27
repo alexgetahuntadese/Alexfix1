@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import StarField from '@/components/StarField';
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowLeft, Copy, Play, Users, Video, VideoOff, Clock, Trophy, Medal, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -53,6 +53,8 @@ const ExamTogetherSession = () => {
   const [timeLeft, setTimeLeft] = useState(20);
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [localQuestionIndex, setLocalQuestionIndex] = useState(0);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const refreshData = useCallback(() => {
     const sessionCode = searchParams.get('sessionCode');
@@ -71,14 +73,20 @@ const ExamTogetherSession = () => {
     const storedParticipantId = sessionStorage.getItem('examTogetherParticipantId');
     const storedIsHost = sessionStorage.getItem('examTogetherIsHost') === 'true';
     
+    console.log('ExamTogetherSession useEffect:', { sessionCode, playerName, hostName, mode, year, grade, subject });
+    setIsInitialized(true);
+    
     // Check if we have creation parameters (hostName, mode, etc.)
     const hasCreationParams = hostName && mode && (year || grade) && subject;
+    console.log('hasCreationParams:', hasCreationParams);
     
     if (sessionCode && playerName) {
       // Join existing session
+      console.log('Joining existing session with playerName');
       joinExistingSession(sessionCode, playerName);
     } else if (sessionCode && !hasCreationParams) {
       // Only sessionCode, no creation params - try to load existing session
+      console.log('Loading existing session');
       const currentSession = getSession(sessionCode);
       if (currentSession) {
         setParticipantId(storedParticipantId);
@@ -107,6 +115,7 @@ const ExamTogetherSession = () => {
       }
     } else {
       // Either no session code or has creation params - create new session
+      console.log('Creating new session');
       createNewSession();
     }
     
@@ -121,6 +130,8 @@ const ExamTogetherSession = () => {
 
   const createNewSession = async () => {
     try {
+      setIsCreating(true);
+      console.log('createNewSession called with:', { hostName, mode, grade, year, subject });
       const { createSession } = await import('@/lib/sessionUtils');
       const { session: newSession, participant } = await createSession(
         hostName,
@@ -131,6 +142,9 @@ const ExamTogetherSession = () => {
         'exam_together',
         mode === 'grade' ? undefined : year
       );
+      
+      console.log('Session created:', newSession);
+      console.log('Participant created:', participant);
       
       sessionStorage.setItem('examTogetherParticipantId', participant.id);
       sessionStorage.setItem('examTogetherIsHost', 'true');
@@ -144,6 +158,7 @@ const ExamTogetherSession = () => {
       setParticipants([participant]);
       setParticipantId(participant.id);
       setIsHost(true);
+      setIsCreating(false);
       
       // Start polling for session updates
       const interval = setInterval(() => {
@@ -158,6 +173,7 @@ const ExamTogetherSession = () => {
       (window as any).examTogetherInterval = interval;
     } catch (error) {
       console.error('Error creating session:', error);
+      setIsCreating(false);
       toast({
         title: "Error",
         description: "Failed to create session. Please try again.",
@@ -326,7 +342,27 @@ const ExamTogetherSession = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-950 via-violet-900 to-purple-950 flex items-center justify-center overflow-hidden relative">
         <StarField starCount={30} shootingCount={2} />
-        <div className="text-white text-xl">Creating session...</div>
+        <div className="text-center max-w-md">
+          <div className="text-white text-xl mb-2">
+            {isCreating ? 'Creating session...' : hostName ? 'Initializing...' : 'Loading...'}
+          </div>
+          <div className="text-white/60 text-sm mb-4">
+            Debug: hostName={hostName}, mode={mode}, grade={grade}, subject={subject}, isCreating={isCreating}, isInitialized={isInitialized}
+          </div>
+          {!isInitialized && (
+            <div className="text-red-400 text-sm">
+              useEffect has not run yet. This is a bug.
+            </div>
+          )}
+          {isInitialized && !isCreating && hostName && (
+            <Button
+              onClick={() => createNewSession()}
+              className="bg-purple-500 hover:bg-purple-600 text-white"
+            >
+              Retry Session Creation
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
