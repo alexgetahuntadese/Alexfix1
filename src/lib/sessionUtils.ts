@@ -168,23 +168,29 @@ export const getSession = (sessionCode: string): Session | null => {
 
 export const getExamTogetherSessions = (): Session[] => {
   const sessions = getSessions();
-  return sessions.filter(s => s.session_type === 'exam_together' && s.status === 'waiting');
+  return sessions.filter(s => s.session_type === 'exam_together');
 };
 
 export const clearOldSessions = () => {
   const sessions = getSessions();
-  const activeSessions = sessions.filter(s => s.status !== 'completed');
-  saveSessions(activeSessions);
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   
-  // Also clear old participants and answers for completed sessions
-  const activeSessionIds = activeSessions.map(s => s.id);
+  // Keep all sessions from the last 24 hours, regardless of status
+  const recentSessions = sessions.filter(s => {
+    const sessionDate = new Date(s.created_at);
+    return sessionDate > oneDayAgo;
+  });
+  saveSessions(recentSessions);
+  
+  // Also clear participants and answers for old sessions
+  const recentSessionIds = recentSessions.map(s => s.id);
   const participants = getParticipants();
-  const activeParticipants = participants.filter(p => activeSessionIds.includes(p.session_id));
-  saveParticipants(activeParticipants);
+  const recentParticipants = participants.filter(p => recentSessionIds.includes(p.session_id));
+  saveParticipants(recentParticipants);
   
   const answers = getAnswers();
-  const activeAnswers = answers.filter(a => activeSessionIds.includes(a.session_id));
-  saveAnswers(activeAnswers);
+  const recentAnswers = answers.filter(a => recentSessionIds.includes(a.session_id));
+  saveAnswers(recentAnswers);
 };
 
 export const getSessionParticipants = (sessionId: string): Participant[] => {
