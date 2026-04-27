@@ -529,98 +529,105 @@ const ExamTogetherSession = () => {
   // Waiting room
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-violet-900 to-purple-950 p-4 overflow-hidden relative">
-      <StarField starCount={30} shootingCount={2} />
+      <StarField starCount={50} shootingCount={3} />
       <div className="max-w-md mx-auto">
         <Button
           variant="ghost"
           onClick={() => navigate("/")}
-          className="text-white hover:bg-white/10 mb-6"
+          className="text-white hover:bg-white/10 mb-6 transition-all hover:scale-105"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Leave Session
         </Button>
 
-        <Card className="bg-white/10 backdrop-blur-md border-white/20 mb-4">
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl text-white">Session Code</CardTitle>
+        <Card className="bg-white/10 backdrop-blur-md border-white/20 mb-6 overflow-hidden relative">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500"></div>
+          <CardHeader className="text-center pb-6">
+            <div className="mx-auto w-20 h-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4 shadow-lg shadow-purple-500/30 animate-pulse">
+              <Users className="h-10 w-10 text-white" />
+            </div>
+            <CardTitle className="text-3xl text-white font-bold mb-2">Waiting Room</CardTitle>
+            <CardDescription className="text-blue-100 text-lg">
+              Share the code with friends
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div 
               onClick={copyCode}
-              className="bg-white/20 rounded-lg p-4 flex items-center justify-center gap-2 cursor-pointer hover:bg-white/30 transition-colors"
+              className="bg-white/20 rounded-2xl p-6 flex items-center justify-center gap-3 cursor-pointer hover:bg-white/30 transition-all hover:scale-105 border-2 border-white/20 hover:border-purple-400"
             >
-              <span className="text-4xl font-mono font-bold text-white tracking-widest">
+              <span className="text-5xl font-mono font-bold text-white tracking-widest">
                 {session.session_code}
               </span>
-              <Copy className="h-5 w-5 text-white/70" />
+              <Copy className="h-6 w-6 text-white/70" />
             </div>
-            <p className="text-center text-white/60 text-sm mt-2">Click to copy</p>
+            <p className="text-center text-white/60 text-sm mt-3 flex items-center justify-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              Click to copy code
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/10 backdrop-blur-md border-white/20 mb-4">
+        <Card className="bg-white/10 backdrop-blur-md border-white/20">
           <CardHeader>
-            <CardTitle className="text-lg text-white flex items-center gap-2">
-              <Users className="h-5 w-5" />
+            <CardTitle className="text-xl text-white flex items-center gap-2">
+              <Users className="h-5 w-5 text-purple-400" />
               Players ({participants.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {participants.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between bg-white/10 rounded-lg p-3"
-                >
-                  <span className="text-white">{p.player_name}</span>
-                  {p.is_host && (
-                    <span className="text-xs bg-purple-500 text-white px-2 py-1 rounded">Host</span>
-                  )}
+            <div className="space-y-3">
+              {participants.length === 0 ? (
+                <div className="text-center py-8 text-white/60">
+                  <Users className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                  <p>Waiting for players to join...</p>
                 </div>
-              ))}
+              ) : (
+                participants.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between bg-white/10 rounded-xl p-4 border border-white/10"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold">{p.player_name.charAt(0).toUpperCase()}</span>
+                      </div>
+                      <div>
+                        <span className="text-white font-medium">{p.player_name}</span>
+                        {p.is_host && (
+                          <span className="ml-2 text-xs bg-purple-500/30 text-purple-300 px-2 py-1 rounded-full">Host</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                      <span className="text-white/60 text-sm">Ready</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/10 backdrop-blur-md border-white/20 mb-4">
-          <CardContent className="pt-4">
-            <div className="text-white/80 text-sm space-y-1">
-              <p>Year: {session.year}</p>
-              <p>Subject: {session.subject}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {showVideoCall && dailyRoomUrl && (
-          <div className="mb-4">
-            <DailyVideoCall
-              roomUrl={dailyRoomUrl}
-              onLeave={() => setShowVideoCall(false)}
-            />
-          </div>
-        )}
-
-        <Button
-          onClick={handleToggleVideoCall}
-          variant={showVideoCall ? "default" : "outline"}
-          className="w-full mb-4 bg-white/10 border-white/20 text-white hover:bg-white/20"
-        >
-          {showVideoCall ? <VideoOff className="h-4 w-4 mr-2" /> : <Video className="h-4 w-4 mr-2" />}
-          {showVideoCall ? 'Hide Video' : 'Start Video Call'}
-        </Button>
-
-        {isHost ? (
-          <Button
-            onClick={handleStartSession}
-            className="w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-3"
-          >
-            <Play className="mr-2 h-5 w-5" />
-            Start Exam
-          </Button>
-        ) : (
-          <div className="text-center text-white/60">
-            Waiting for host to start the exam...
-          </div>
+        {isHost && (
+          <Card className="bg-white/10 backdrop-blur-md border-white/20 mt-6">
+            <CardContent className="pt-6">
+              <Button
+                onClick={handleStartSession}
+                className="w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-4 rounded-xl shadow-lg shadow-green-500/30 transition-all hover:scale-105"
+                disabled={participants.length < 1}
+              >
+                <Play className="mr-2 h-5 w-5" />
+                Start Exam
+              </Button>
+              {participants.length < 1 && (
+                <p className="text-center text-white/60 text-sm mt-2">
+                  Wait for at least 1 player to join
+                </p>
+              )}
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
