@@ -456,11 +456,11 @@ const ExamTogetherSession = () => {
                     {currentQuestion.options.map((option, index) => (
                       <button
                         key={index}
-                        onClick={() => handleAnswerSubmit(option, option === currentQuestion.correctAnswer)}
+                        onClick={() => handleAnswerSubmit(option, index === currentQuestion.correctAnswer)}
                         disabled={hasAnswered}
                         className={`w-full text-left p-4 rounded-lg border transition-all ${
                           hasAnswered
-                            ? option === currentQuestion.correctAnswer
+                            ? index === currentQuestion.correctAnswer
                               ? 'bg-green-500/30 border-green-500 text-white'
                               : 'bg-white/5 border-white/20 text-white/50'
                             : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
