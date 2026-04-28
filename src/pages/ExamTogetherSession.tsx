@@ -40,6 +40,7 @@ const ExamTogetherSession = () => {
   const year = searchParams.get('year') || '';
   const grade = searchParams.get('grade') || '';
   const subject = searchParams.get('subject') || '';
+  const questionCount = parseInt(searchParams.get('questionCount') || '10');
   
   const [session, setSession] = useState<Session | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -234,7 +235,7 @@ const ExamTogetherSession = () => {
         // Grade mode
         questionsList = getQuestionsForQuiz(parseInt(session.grade), session.subject, 'all', 'medium', session.session_code);
       }
-      setQuestions(questionsList.slice(0, 10));
+      setQuestions(questionsList.slice(0, questionCount));
     }
   };
 
@@ -250,7 +251,7 @@ const ExamTogetherSession = () => {
         // Grade mode
         questionsList = getQuestionsForQuiz(parseInt(session.grade), session.subject, 'all', 'medium', session.session_code);
       }
-      const selectedQuestions = questionsList.slice(0, 10);
+      const selectedQuestions = questionsList.slice(0, questionCount);
       await startSession(session.id, selectedQuestions);
       refreshData();
     } catch (error) {
@@ -340,12 +341,13 @@ const ExamTogetherSession = () => {
   if (session.status === 'completed') {
     const winner = participants.length > 0 ? participants[0] : null;
     const isWinner = winner && participantId === winner.id;
+    const [showAnswers, setShowAnswers] = useState(false);
     
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-950 via-violet-900 to-purple-950 p-4 overflow-hidden relative">
         <StarField starCount={50} shootingCount={5} />
-        <div className="max-w-2xl mx-auto">
-          <Card className="bg-white/10 backdrop-blur-md border-white/20">
+        <div className="max-w-4xl mx-auto">
+          <Card className="bg-white/10 backdrop-blur-md border-white/20 mb-6">
             <CardHeader className="text-center">
               {isWinner ? (
                 <>
@@ -396,14 +398,61 @@ const ExamTogetherSession = () => {
                   </div>
                 ))}
               </div>
-              <Button
-                onClick={() => navigate('/')}
-                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3"
-              >
-                Back to Home
-              </Button>
+              <div className="flex gap-2 mb-4">
+                <Button
+                  onClick={() => setShowAnswers(!showAnswers)}
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold py-3"
+                >
+                  {showAnswers ? 'Hide Answers' : 'Show Answers'}
+                </Button>
+                <Button
+                  onClick={() => navigate('/')}
+                  className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3"
+                >
+                  Back to Home
+                </Button>
+              </div>
             </CardContent>
           </Card>
+
+          {showAnswers && questions.length > 0 && (
+            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+              <CardHeader>
+                <CardTitle className="text-2xl text-white">Exam Answers</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {questions.map((question, qIndex) => (
+                    <div key={qIndex} className="bg-white/5 rounded-lg p-4 border border-white/10">
+                      <h4 className="text-white font-semibold mb-3">
+                        Question {qIndex + 1}: {question.question}
+                      </h4>
+                      <div className="space-y-2">
+                        {question.options.map((option, oIndex) => (
+                          <div
+                            key={oIndex}
+                            className={`p-3 rounded-lg border ${
+                              oIndex === question.correctAnswer
+                                ? 'bg-green-500/30 border-green-500 text-white'
+                                : 'bg-white/5 border-white/20 text-white/70'
+                            }`}
+                          >
+                            <span className="font-bold mr-2">
+                              {String.fromCharCode(65 + oIndex)}.
+                            </span>
+                            {option}
+                            {oIndex === question.correctAnswer && (
+                              <span className="ml-2 text-green-400 font-bold">✓ Correct</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     );
@@ -428,7 +477,7 @@ const ExamTogetherSession = () => {
                 onClick={handleToggleVideoCall}
                 variant={showVideoCall ? "default" : "outline"}
                 size="sm"
-                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20 font-semibold"
               >
                 {showVideoCall ? <VideoOff className="h-4 w-4 mr-2" /> : <Video className="h-4 w-4 mr-2" />}
                 {showVideoCall ? 'Hide Video' : 'Video Call'}
@@ -475,7 +524,7 @@ const ExamTogetherSession = () => {
               
               <div className="mt-4 flex gap-2">
                 {isLastQuestion && isHost && (
-                  <Button onClick={handleEndSession} className="flex-1 bg-green-500 hover:bg-green-600">
+                  <Button onClick={handleEndSession} className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold">
                     End Exam
                   </Button>
                 )}
@@ -600,7 +649,7 @@ const ExamTogetherSession = () => {
             <CardContent className="pt-6">
               <Button
                 onClick={handleStartSession}
-                className="w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-4 rounded-xl shadow-lg shadow-green-500/30 transition-all hover:scale-105"
+                className="w-full bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white font-semibold py-4 rounded-xl shadow-lg shadow-green-500/30 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 disabled={participants.length < 1}
               >
                 <Play className="mr-2 h-5 w-5" />

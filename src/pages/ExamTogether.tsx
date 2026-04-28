@@ -17,7 +17,8 @@ const ExamTogether = () => {
   const [year, setYear] = useState("");
   const [grade, setGrade] = useState("");
   const [subject, setSubject] = useState("");
-  const [step, setStep] = useState<'name' | 'mode' | 'year' | 'grade' | 'subject' | 'summary'>('name');
+  const [questionCount, setQuestionCount] = useState("10");
+  const [step, setStep] = useState<'name' | 'mode' | 'year' | 'grade' | 'subject' | 'questions' | 'summary'>('name');
   const [isCreating, setIsCreating] = useState(false);
   const [availableRooms, setAvailableRooms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -123,6 +124,18 @@ const ExamTogether = () => {
       });
       return;
     }
+    setStep('questions');
+  };
+
+  const handleQuestionsSubmit = () => {
+    if (!questionCount) {
+      toast({
+        title: "Error",
+        description: "Please select number of questions",
+        variant: "destructive"
+      });
+      return;
+    }
     setStep('summary');
   };
 
@@ -131,9 +144,9 @@ const ExamTogether = () => {
     try {
       // Navigate to session creation with mode-specific data
       if (mode === 'matric') {
-        navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&mode=matric&year=${year}&subject=${subject}`);
+        navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&mode=matric&year=${year}&subject=${subject}&questionCount=${questionCount}`);
       } else {
-        navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&mode=grade&grade=${grade}&subject=${subject}`);
+        navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&mode=grade&grade=${grade}&subject=${subject}&questionCount=${questionCount}`);
       }
     } catch (error) {
       toast({
@@ -345,6 +358,7 @@ const ExamTogether = () => {
               <div className={`h-2 w-2 rounded-full ${step === 'mode' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
               <div className={`h-2 w-2 rounded-full ${step === 'year' || step === 'grade' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
               <div className={`h-2 w-2 rounded-full ${step === 'subject' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
+              <div className={`h-2 w-2 rounded-full ${step === 'questions' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
               <div className={`h-2 w-2 rounded-full ${step === 'summary' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
             </div>
           </CardHeader>
@@ -502,6 +516,39 @@ const ExamTogether = () => {
               </div>
             )}
 
+            {step === 'questions' && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <div>
+                  <label className="text-sm text-white/80 mb-2 block flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Number of Questions
+                  </label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {["5", "10", "15", "20", "25", "30"].map((count) => (
+                      <button
+                        key={count}
+                        onClick={() => setQuestionCount(count)}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          questionCount === count
+                            ? 'border-purple-400 bg-purple-500/20'
+                            : 'border-white/20 bg-white/5 hover:border-white/40'
+                        }`}
+                      >
+                        <div className="text-white font-bold text-xl">{count}</div>
+                        <div className="text-white/60 text-xs mt-1">Questions</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Button
+                  onClick={handleQuestionsSubmit}
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-purple-500/30 transition-all hover:scale-105"
+                >
+                  Continue
+                </Button>
+              </div>
+            )}
+
             {step === 'summary' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
                 <div>
@@ -534,13 +581,17 @@ const ExamTogether = () => {
                       <span className="text-white/60">Subject:</span>
                       <span className="font-medium">{subject}</span>
                     </div>
+                    <div className="flex justify-between text-white">
+                      <span className="text-white/60">Questions:</span>
+                      <span className="font-medium">{questionCount}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    onClick={() => setStep('subject')}
+                    onClick={() => setStep('questions')}
                     variant="outline"
-                    className="flex-1 border-white/20 text-white hover:bg-white/10"
+                    className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20 font-semibold"
                   >
                     Back
                   </Button>
