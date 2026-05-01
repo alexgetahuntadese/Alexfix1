@@ -1,11 +1,11 @@
 import { Fragment, useState } from 'react';
-import { useParams, useNavigate, Navigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, CheckCircle2, XCircle, ChevronRight, Clock, Target, Brain, Lightbulb, RotateCcw, Eye } from 'lucide-react';
-import { getMatricQuestions, getMatricSubjectsForYear, MatricExamQuestion } from '@/data/matricExams';
+import { getMatricQuestions, type MatricExamQuestion } from '@/data/matricExams';
 import TopBar from '@/components/TopBar';
 import StarField from '@/components/StarField';
 

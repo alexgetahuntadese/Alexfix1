@@ -47,13 +47,20 @@ const flattenQuestions = (questionsObj: Record<string, any[]>): any[] => {
 };
 
 // Normalize different question formats to a standard format
-const normalizeQuestion = (q: any): NormalizedQuestion => ({
-  question: q.question,
-  options: q.options,
-  correctAnswer: q.correct || q.correctAnswer,
-  explanation: q.explanation,
-  difficulty: q.difficulty?.toLowerCase()
-});
+const normalizeQuestion = (q: any): NormalizedQuestion => {
+  const rawCorrectAnswer = q.correct ?? q.correctAnswer;
+  const correctAnswer = typeof rawCorrectAnswer === 'number'
+    ? q.options?.[rawCorrectAnswer]
+    : rawCorrectAnswer;
+
+  return {
+    question: q.question,
+    options: q.options,
+    correctAnswer,
+    explanation: q.explanation,
+    difficulty: q.difficulty?.toLowerCase()
+  };
+};
 
 const questionSets: Record<string, Record<string, any>> = {
   "10": {

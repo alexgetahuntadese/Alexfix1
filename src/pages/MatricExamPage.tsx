@@ -3,13 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Calendar, BookOpen, Clock, TrendingUp, Award, Sparkles, Target } from 'lucide-react';
-import { getMatricStreamsForYear, getMatricYears } from '@/data/matricExams';
+import { getMatricStreamsForYearMeta, getMatricYearsMeta } from '@/data/matricExamMetadata';
 import TopBar from '@/components/TopBar';
 import StarField from '@/components/StarField';
 
 const MatricExamPage = () => {
   const navigate = useNavigate();
-  const years = getMatricYears();
+  const years = getMatricYearsMeta();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-950 pt-14 px-4 pb-4 md:p-8 md:pt-14 overflow-hidden relative">
@@ -62,9 +62,9 @@ const MatricExamPage = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {years.map((year, index) => {
-            const streams = getMatricStreamsForYear(year);
+            const streams = getMatricStreamsForYearMeta(year);
             const totalQuestions = streams.reduce(
-              (sum, stream) => sum + stream.subjects.reduce((streamSum, subject) => streamSum + subject.questions.length, 0),
+              (sum, stream) => sum + stream.subjects.filter((subject) => subject.available).length,
               0,
             );
             const isLatest = index === 0;
@@ -108,7 +108,7 @@ const MatricExamPage = () => {
                         </div>
                         <div className="flex items-center gap-2 text-white/50">
                           <TrendingUp className="h-4 w-4" />
-                          <span>{totalQuestions} questions</span>
+                          <span>{totalQuestions} subjects</span>
                         </div>
                       </div>
                       

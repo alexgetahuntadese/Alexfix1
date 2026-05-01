@@ -14,13 +14,14 @@ export interface Session {
   created_at: string;
   session_type: 'quiz' | 'exam_together';
   year?: string;
+  stream?: string;
   questions?: Question[];
 }
 
 export interface Question {
   question: string;
   options: string[];
-  correctAnswer: string;
+  correctAnswer: string | number;
   explanation?: string;
 }
 
@@ -92,7 +93,8 @@ export const createSession = async (
   chapterId: string,
   difficulty: string,
   sessionType: 'quiz' | 'exam_together' = 'quiz',
-  year?: string
+  year?: string,
+  stream?: string
 ) => {
   const sessionCode = generateSessionCode();
   const sessionId = generateId();
@@ -110,6 +112,7 @@ export const createSession = async (
     created_at: new Date().toISOString(),
     session_type: sessionType,
     year,
+    stream,
   };
 
   const sessions = getSessions();

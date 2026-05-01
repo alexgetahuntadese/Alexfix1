@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import StarField from '@/components/StarField';
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowLeft, Copy, Play, Users, Video, VideoOff, Trophy, Medal, Star, Sparkles } from "lucide-react";
@@ -15,12 +15,10 @@ import {
   type Session,
   type Question 
 } from "@/lib/sessionUtils";
-import { getMatricQuestions } from "@/lib/matricUtils";
+import { getMatricQuestions as getMatricExamQuestions } from "@/data/matricExams";
 import { getQuestionsForQuiz } from "@/lib/quizUtils";
 import DailyVideoCall from "@/components/DailyVideoCall";
 import { getDailyRoomUrl } from "@/lib/dailyUtils";
-
-type SessionStatus = 'waiting' | 'in_progress' | 'completed';
 
 interface Participant {
   id: string;
@@ -38,6 +36,7 @@ const ExamTogetherSession = () => {
   const hostName = searchParams.get('hostName') || '';
   const mode = searchParams.get('mode') || 'matric';
   const year = searchParams.get('year') || '';
+  const stream = searchParams.get('stream') || '';
   const grade = searchParams.get('grade') || '';
   const subject = searchParams.get('subject') || '';
   const questionCount = parseInt(searchParams.get('questionCount') || '10');
@@ -52,7 +51,69 @@ const ExamTogetherSession = () => {
   const [dailyRoomUrl, setDailyRoomUrl] = useState<string | null>(null);
   const [localQuestionIndex, setLocalQuestionIndex] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [showAnswers, setShowAnswers] = useState(false);
+
+  const getCorrectAnswerIndex = (question: Question) => {
+    if (typeof question.correctAnswer === 'number') {
+      return question.correctAnswer;
+    }
+
+    return question.options.findIndex((option) => option === question.correctAnswer);
+  };
+
+  const isCorrectOption = (question: Question, optionIndex: number) => {
+    return optionIndex === getCorrectAnswerIndex(question);
+  };
+
+  const normalizeSafeQuestions = (rawQuestions: any[]): Question[] => {
+    return rawQuestions
+      .map((question) => {
+        const options = Array.isArray(question.options) ? question.options : [];
+        const rawCorrectAnswer = question.correct ?? question.correctAnswer;
+        const correctAnswer = typeof rawCorrectAnswer === 'number'
+          ? options[rawCorrectAnswer]
+          : rawCorrectAnswer;
+
+        return {
+          question: question.question,
+          options,
+          correctAnswer,
+          explanation: question.explanation,
+        };
+      })
+      .filter((question) => {
+        return (
+          typeof question.question === 'string' &&
+          question.question.trim().length > 0 &&
+          question.options.length >= 2 &&
+          typeof question.correctAnswer === 'string' &&
+          question.correctAnswer.trim().length > 0 &&
+          question.options.includes(question.correctAnswer)
+        );
+      });
+  };
+
+  const getSafeQuestionsForSession = (currentSession: Session) => {
+    if (currentSession.year) {
+      return normalizeSafeQuestions(
+        getMatricExamQuestions(
+          parseInt(currentSession.year),
+          currentSession.stream || currentSession.chapter_id,
+          currentSession.subject,
+        ),
+      );
+    }
+
+    return normalizeSafeQuestions(
+      getQuestionsForQuiz(
+        parseInt(currentSession.grade),
+        currentSession.subject,
+        'all',
+        'medium',
+        currentSession.session_code,
+      ),
+    );
+  };
 
   const refreshData = useCallback(() => {
     const sessionCode = searchParams.get('sessionCode');
@@ -71,16 +132,16 @@ const ExamTogetherSession = () => {
     const storedParticipantId = sessionStorage.getItem('examTogetherParticipantId');
     const storedIsHost = sessionStorage.getItem('examTogetherIsHost') === 'true';
     
-    setIsInitialized(true);
-    
     // Check if we have creation parameters (hostName, mode, etc.)
-    const hasCreationParams = hostName && mode && (year || grade) && subject;
+    const hasCreationParams = hostName && mode && subject && (
+      mode === 'matric' ? year && stream : grade
+    );
     
     if (sessionCode && playerName) {
       // Join existing session
       joinExistingSession(sessionCode, playerName);
-    } else if (sessionCode && !hasCreationParams) {
-      // Only sessionCode, no creation params - try to load existing session
+    } else if (sessionCode) {
+      // Existing session URL - load it before considering creation params.
       const currentSession = getSession(sessionCode);
       if (currentSession) {
         setParticipantId(storedParticipantId);
@@ -102,13 +163,15 @@ const ExamTogetherSession = () => {
           clearInterval(interval);
           delete (window as any).examTogetherInterval;
         };
+      } else if (hasCreationParams) {
+        createNewSession();
       } else {
-        // Session doesn't exist - redirect to join page with the code
-        navigate(`/exam-together-join?sessionCode=${sessionCode}`);
+        navigate(`/exam-together-join?code=${sessionCode}`);
       }
-    } else {
-      // Either no session code or has creation params - create new session
+    } else if (hasCreationParams) {
       createNewSession();
+    } else {
+      navigate('/exam-together');
     }
     
     // Cleanup on unmount
@@ -128,10 +191,11 @@ const ExamTogetherSession = () => {
         hostName,
         mode === 'grade' ? grade : '12',
         subject,
-        mode === 'grade' ? 'all' : year,
+        mode === 'grade' ? 'all' : stream,
         'medium',
         'exam_together',
-        mode === 'grade' ? undefined : year
+        mode === 'grade' ? undefined : year,
+        mode === 'grade' ? undefined : stream
       );
       
       sessionStorage.setItem('examTogetherParticipantId', participant.id);
@@ -212,7 +276,7 @@ const ExamTogetherSession = () => {
   };
 
   useEffect(() => {
-    if (session?.status === 'in_progress' && questions.length === 0) {
+    if ((session?.status === 'in_progress' || session?.status === 'completed') && questions.length === 0) {
       loadQuestions();
     }
   }, [session?.status]);
@@ -227,14 +291,7 @@ const ExamTogetherSession = () => {
     if (session.questions && session.questions.length > 0) {
       setQuestions(session.questions);
     } else {
-      let questionsList;
-      if (session.year) {
-        // Matric mode
-        questionsList = getMatricQuestions(parseInt(session.year), session.subject, session.session_code);
-      } else {
-        // Grade mode
-        questionsList = getQuestionsForQuiz(parseInt(session.grade), session.subject, 'all', 'medium', session.session_code);
-      }
+      const questionsList = getSafeQuestionsForSession(session);
       setQuestions(questionsList.slice(0, questionCount));
     }
   };
@@ -242,16 +299,16 @@ const ExamTogetherSession = () => {
   const handleStartSession = async () => {
     if (!session) return;
     try {
-      // Generate questions with seeded random for consistency
-      let questionsList;
-      if (session.year) {
-        // Matric mode
-        questionsList = getMatricQuestions(parseInt(session.year), session.subject, session.session_code);
-      } else {
-        // Grade mode
-        questionsList = getQuestionsForQuiz(parseInt(session.grade), session.subject, 'all', 'medium', session.session_code);
+      const questionsList = getSafeQuestionsForSession(session);
+      if (questionsList.length === 0) {
+        toast({
+          title: "No safe questions",
+          description: "This selection does not have answerable questions yet. Please create a room with another subject.",
+          variant: "destructive"
+        });
+        return;
       }
-      const selectedQuestions = questionsList.slice(0, questionCount);
+      const selectedQuestions = questionsList.slice(0, Math.min(questionCount, questionsList.length));
       await startSession(session.id, selectedQuestions);
       refreshData();
     } catch (error) {
@@ -341,7 +398,6 @@ const ExamTogetherSession = () => {
   if (session.status === 'completed') {
     const winner = participants.length > 0 ? participants[0] : null;
     const isWinner = winner && participantId === winner.id;
-    const [showAnswers, setShowAnswers] = useState(false);
     
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-950 via-violet-900 to-purple-950 p-4 overflow-hidden relative">
@@ -432,7 +488,7 @@ const ExamTogetherSession = () => {
                           <div
                             key={oIndex}
                             className={`p-3 rounded-lg border ${
-                              oIndex === question.correctAnswer
+                              isCorrectOption(question, oIndex)
                                 ? 'bg-green-500/30 border-green-500 text-white'
                                 : 'bg-white/5 border-white/20 text-white/70'
                             }`}
@@ -441,7 +497,7 @@ const ExamTogetherSession = () => {
                               {String.fromCharCode(65 + oIndex)}.
                             </span>
                             {option}
-                            {oIndex === question.correctAnswer && (
+                            {isCorrectOption(question, oIndex) && (
                               <span className="ml-2 text-green-400 font-bold">✓ Correct</span>
                             )}
                           </div>
@@ -505,11 +561,11 @@ const ExamTogetherSession = () => {
                     {currentQuestion.options.map((option, index) => (
                       <button
                         key={index}
-                        onClick={() => handleAnswerSubmit(option, index === currentQuestion.correctAnswer)}
+                        onClick={() => handleAnswerSubmit(option, isCorrectOption(currentQuestion, index))}
                         disabled={hasAnswered}
                         className={`w-full text-left p-4 rounded-lg border transition-all ${
                           hasAnswered
-                            ? index === currentQuestion.correctAnswer
+                            ? isCorrectOption(currentQuestion, index)
                               ? 'bg-green-500/30 border-green-500 text-white'
                               : 'bg-white/5 border-white/20 text-white/50'
                             : 'bg-white/10 border-white/20 text-white hover:bg-white/20'

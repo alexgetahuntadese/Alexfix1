@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, CheckCircle2, XCircle, ChevronRight, Clock, Target, Brain, Lightbulb, RotateCcw, Eye, Sparkles } from 'lucide-react';
-import { MatricExamQuestion } from '@/data/matricExams';
+import type { MatricExamQuestion } from '@/data/matricExams';
 import TopBar from '@/components/TopBar';
 import StarField from '@/components/StarField';
 

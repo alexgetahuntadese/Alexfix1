@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Users, Calendar, Plus, RefreshCw, GraduationCap, BookOpen, Sparkles, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getExamTogetherSessions, getSessionParticipants, clearOldSessions } from "@/lib/sessionUtils";
+import { getMatricStreamsForYearMeta, getMatricSubjectsForYearMeta, getMatricYearsMeta } from "@/data/matricExamMetadata";
 
 const ExamTogether = () => {
   const navigate = useNavigate();
@@ -15,16 +16,18 @@ const ExamTogether = () => {
   const [hostName, setHostName] = useState("");
   const [mode, setMode] = useState<'grade' | 'matric'>('matric');
   const [year, setYear] = useState("");
+  const [stream, setStream] = useState("");
   const [grade, setGrade] = useState("");
   const [subject, setSubject] = useState("");
   const [questionCount, setQuestionCount] = useState("10");
-  const [step, setStep] = useState<'name' | 'mode' | 'year' | 'grade' | 'subject' | 'questions' | 'summary'>('name');
+  const [step, setStep] = useState<'name' | 'mode' | 'year' | 'stream' | 'grade' | 'subject' | 'questions' | 'summary'>('name');
   const [isCreating, setIsCreating] = useState(false);
   const [availableRooms, setAvailableRooms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const years = ["2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024"];
+  const years = getMatricYearsMeta().map(String);
   const grades = ["10", "11", "12"];
+  const questionCountOptions = ["5", "10", "15", "20", "25", "30"];
   
   // Subjects available for each grade (from quizUtils.ts)
   const gradeSubjects: Record<string, string[]> = {
@@ -33,13 +36,16 @@ const ExamTogether = () => {
     "12": ["Agriculture", "Biology", "Chemistry", "Civics", "English", "Geography", "History", "IT", "Mathematics", "Physics"],
   };
   
-  // Subjects available for Matric (from matricUtils.ts - Grade 12)
-  const matricSubjects = ["Mathematics", "Physics", "Chemistry", "Biology", "English", "History", "Geography", "Civics", "IT"];
-  
+  const getAvailableStreams = () => {
+    if (!year) return [];
+    return getMatricStreamsForYearMeta(Number(year));
+  };
+
   // Get available subjects based on current mode and grade
   const getAvailableSubjects = () => {
     if (mode === 'matric') {
-      return matricSubjects;
+      if (!year || !stream) return [];
+      return getMatricSubjectsForYearMeta(Number(year), stream).map((s) => s.subject);
     }
     return gradeSubjects[grade] || [];
   };
@@ -100,6 +106,21 @@ const ExamTogether = () => {
       });
       return;
     }
+    setStream("");
+    setSubject("");
+    setStep('stream');
+  };
+
+  const handleStreamSubmit = () => {
+    if (!stream) {
+      toast({
+        title: "Error",
+        description: "Please select a stream",
+        variant: "destructive"
+      });
+      return;
+    }
+    setSubject("");
     setStep('subject');
   };
 
@@ -144,9 +165,9 @@ const ExamTogether = () => {
     try {
       // Navigate to session creation with mode-specific data
       if (mode === 'matric') {
-        navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&mode=matric&year=${year}&subject=${subject}&questionCount=${questionCount}`);
+        navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&mode=matric&year=${year}&stream=${stream}&subject=${encodeURIComponent(subject)}&questionCount=${questionCount}`);
       } else {
-        navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&mode=grade&grade=${grade}&subject=${subject}&questionCount=${questionCount}`);
+        navigate(`/exam-together-session?hostName=${encodeURIComponent(hostName)}&mode=grade&grade=${grade}&subject=${encodeURIComponent(subject)}&questionCount=${questionCount}`);
       }
     } catch (error) {
       toast({
@@ -275,7 +296,7 @@ const ExamTogether = () => {
                           {room.year ? (
                             <>
                               <Calendar className="h-3 w-3" />
-                              {room.year} Matric
+                              {room.year} {room.stream ? `${room.stream} ` : ''}Matric
                             </>
                           ) : (
                             <>
@@ -357,6 +378,7 @@ const ExamTogether = () => {
               <div className={`h-2 w-2 rounded-full ${step === 'name' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
               <div className={`h-2 w-2 rounded-full ${step === 'mode' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
               <div className={`h-2 w-2 rounded-full ${step === 'year' || step === 'grade' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
+              <div className={`h-2 w-2 rounded-full ${step === 'stream' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
               <div className={`h-2 w-2 rounded-full ${step === 'subject' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
               <div className={`h-2 w-2 rounded-full ${step === 'questions' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
               <div className={`h-2 w-2 rounded-full ${step === 'summary' ? 'bg-purple-400' : 'bg-white/30'}`}></div>
@@ -456,6 +478,44 @@ const ExamTogether = () => {
               </div>
             )}
 
+            {step === 'stream' && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <div>
+                  <label className="text-sm text-white/80 mb-2 block flex items-center gap-2">
+                    <GraduationCap className="h-4 w-4" />
+                    Select Matric Stream
+                  </label>
+                  <div className="grid grid-cols-1 gap-3">
+                    {getAvailableStreams().map((s) => (
+                      <button
+                        key={s.key}
+                        onClick={() => {
+                          setStream(s.key);
+                          setSubject("");
+                        }}
+                        className={`p-4 rounded-xl border-2 transition-all text-left ${
+                          stream === s.key
+                            ? 'border-purple-400 bg-purple-500/20'
+                            : 'border-white/20 bg-white/5 hover:border-white/40'
+                        }`}
+                      >
+                        <div className="text-white font-semibold">{s.label}</div>
+                        <div className="text-white/60 text-xs mt-1">
+                          {s.subjects.filter((item) => item.available).length} subjects available
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Button
+                  onClick={handleStreamSubmit}
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-purple-500/30 transition-all hover:scale-105"
+                >
+                  Continue
+                </Button>
+              </div>
+            )}
+
             {step === 'grade' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
                 <div>
@@ -506,6 +566,11 @@ const ExamTogether = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {getAvailableSubjects().length === 0 && (
+                    <p className="text-sm text-white/60 mt-2">
+                      No safe question sets are available for this selection.
+                    </p>
+                  )}
                 </div>
                 <Button
                   onClick={handleSubjectSubmit}
@@ -524,7 +589,7 @@ const ExamTogether = () => {
                     Number of Questions
                   </label>
                   <div className="grid grid-cols-3 gap-3">
-                    {["5", "10", "15", "20", "25", "30"].map((count) => (
+                    {questionCountOptions.map((count) => (
                       <button
                         key={count}
                         onClick={() => setQuestionCount(count)}
@@ -566,10 +631,16 @@ const ExamTogether = () => {
                       <span className="font-medium capitalize">{mode}</span>
                     </div>
                     {mode === 'matric' && (
-                      <div className="flex justify-between text-white">
-                        <span className="text-white/60">Year:</span>
-                        <span className="font-medium">{year}</span>
-                      </div>
+                      <>
+                        <div className="flex justify-between text-white">
+                          <span className="text-white/60">Year:</span>
+                          <span className="font-medium">{year}</span>
+                        </div>
+                        <div className="flex justify-between text-white">
+                          <span className="text-white/60">Stream:</span>
+                          <span className="font-medium">{getAvailableStreams().find((s) => s.key === stream)?.label || stream}</span>
+                        </div>
+                      </>
                     )}
                     {mode === 'grade' && (
                       <div className="flex justify-between text-white">

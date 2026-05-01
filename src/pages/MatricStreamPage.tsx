@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, BookOpen, FlaskConical, Landmark, Users, Clock, TrendingUp, Sparkles } from 'lucide-react';
-import { getMatricStreamsForYear } from '@/data/matricExams';
+import { getMatricStreamsForYearMeta } from '@/data/matricExamMetadata';
 import TopBar from '@/components/TopBar';
 import StarField from '@/components/StarField';
 
@@ -29,7 +29,7 @@ const MatricStreamPage = () => {
   const { year } = useParams<{ year: string }>();
   const navigate = useNavigate();
   const yearNum = Number(year);
-  const streams = getMatricStreamsForYear(yearNum);
+  const streams = getMatricStreamsForYearMeta(yearNum);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-violet-900 to-purple-950 pt-14 px-4 pb-4 md:p-8 md:pt-14 overflow-hidden relative">
@@ -60,7 +60,7 @@ const MatricStreamPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {streams.map((stream, index) => {
             const StreamIcon = streamIcons[stream.key as keyof typeof streamIcons] ?? BookOpen;
-            const totalQuestions = stream.subjects.reduce((sum, subject) => sum + subject.questions.length, 0);
+            const availableSubjects = stream.subjects.filter((subject) => subject.available).length;
             const info = streamInfo[stream.key as keyof typeof streamInfo];
             const isPopular = stream.key === 'natural';
 
@@ -103,14 +103,14 @@ const MatricStreamPage = () => {
                             <BookOpen className="h-4 w-4" />
                             <span>Subjects</span>
                           </div>
-                          <div className="text-white text-lg font-bold">{stream.subjects.length}</div>
+                          <div className="text-white text-lg font-bold">{availableSubjects}</div>
                         </div>
                         <div className="text-center p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
                           <div className="flex items-center justify-center gap-1.5 text-white/50 text-sm mb-1">
                             <TrendingUp className="h-4 w-4" />
-                            <span>Questions</span>
+                            <span>Sets</span>
                           </div>
-                          <div className="text-white text-lg font-bold">{totalQuestions}</div>
+                          <div className="text-white text-lg font-bold">Ready</div>
                         </div>
                       </div>
                       

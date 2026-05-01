@@ -11,7 +11,8 @@ const ExamTogetherJoin = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const [sessionCode, setSessionCode] = useState(searchParams.get('code') || "");
+  const initialSessionCode = searchParams.get('code') || searchParams.get('sessionCode') || "";
+  const [sessionCode, setSessionCode] = useState(initialSessionCode);
   const [playerName, setPlayerName] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
@@ -77,12 +78,12 @@ const ExamTogetherJoin = () => {
   };
 
   useEffect(() => {
-    const code = searchParams.get('code');
+    const code = searchParams.get('code') || searchParams.get('sessionCode');
     if (code) {
       setSessionCode(code);
       validateSession(code);
     }
-  }, [searchParams.get('code')]);
+  }, [searchParams]);
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.toUpperCase();

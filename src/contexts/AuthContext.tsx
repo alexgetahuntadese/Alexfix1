@@ -13,7 +13,6 @@ import {
   isAdminPreferences,
 } from "@/lib/authRoles";
 import { INACTIVE_ACCOUNT_NOTICE_KEY } from "@/lib/authStorage";
-import { parseAuthService } from "@/integrations/parse/parseAuth";
 import type {
   AuthUser,
   RegisterInput,
@@ -21,6 +20,11 @@ import type {
   UserProfile,
 } from "@/lib/auth/types";
 import { updateStudentName } from "@/lib/performanceUtils";
+
+const getParseAuthService = async () => {
+  const module = await import("@/integrations/parse/parseAuth");
+  return module.parseAuthService;
+};
 
 const getStringValue = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
@@ -72,6 +76,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const bootstrap = async () => {
       try {
+        const parseAuthService = await getParseAuthService();
         const session = await parseAuthService.getSession();
         
         if (!active) {
@@ -111,6 +116,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     displayName: deriveDisplayName(user, profile),
     refreshProfile: async () => {
       try {
+        const parseAuthService = await getParseAuthService();
         const session = await parseAuthService.getSession();
         if (session?.profile) {
           return await applyUserData(session.user, session.profile);
@@ -123,6 +129,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     },
     signIn: async (phone: string, password: string) => {
       try {
+        const parseAuthService = await getParseAuthService();
         const session = await parseAuthService.signIn({ phone, password });
         if (session?.session?.user && session?.session?.profile) {
           const userProfile = await applyUserData(session.session.user, session.session.profile);
@@ -137,6 +144,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     },
     register: async (input: RegisterInput) => {
       try {
+        const parseAuthService = await getParseAuthService();
         const session = await parseAuthService.register(input);
         if (session?.session?.user && session?.session?.profile) {
           const userProfile = await applyUserData(session.session.user, session.session.profile);
@@ -151,6 +159,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     },
     updateProfile: async (input: UpdateProfileInput) => {
       try {
+        const parseAuthService = await getParseAuthService();
         const session = await parseAuthService.updateProfile(input);
         if (session?.profile) {
           const userProfile = await applyUserData(session.user, session.profile);
@@ -164,6 +173,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     },
     signOut: async () => {
       try {
+        const parseAuthService = await getParseAuthService();
         await parseAuthService.signOut();
         clearAuthState();
       } catch (error) {

@@ -23,7 +23,7 @@ import {
   CheckCircle2,
   type LucideIcon,
 } from 'lucide-react';
-import { getMatricSubjectsForYear } from '@/data/matricExams';
+import { getMatricSubjectsForYearMeta } from '@/data/matricExamMetadata';
 import TopBar from '@/components/TopBar';
 import StarField from '@/components/StarField';
 import { useAuth } from "@/hooks/useAuth";
@@ -61,7 +61,7 @@ const MatricYearPage = () => {
   const yearNum = Number(year);
   const streamKey = stream ?? 'natural';
   const streamLabel = streamKey === 'social' ? 'Social Science' : 'Natural Science';
-  const subjects = getMatricSubjectsForYear(yearNum, streamKey);
+  const subjects = getMatricSubjectsForYearMeta(yearNum, streamKey);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-violet-900 to-purple-950 pt-14 px-4 pb-4 md:p-8 md:pt-14 overflow-hidden relative">
@@ -91,7 +91,7 @@ const MatricYearPage = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {subjects.map((subj, index) => {
-            const hasQuestions = subj.questions.length > 0;
+            const hasQuestions = subj.available;
             const locked = false; // All subjects unlocked
             const SubjectIcon = subjectIcons[subj.subject] ?? BookOpen;
             const colorClass = subjectColors[subj.subject] ?? 'from-gray-500 to-gray-600';
@@ -154,7 +154,7 @@ const MatricYearPage = () => {
                             <BookOpen className="h-3 w-3" />
                             <span>Questions</span>
                           </div>
-                          <div className="text-white text-base font-bold">{subj.questions.length}</div>
+                          <div className="text-white text-base font-bold">Ready</div>
                         </div>
                         <div className="text-center p-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
                           <div className="flex items-center justify-center gap-1 text-white/50 text-xs mb-1">
@@ -206,7 +206,7 @@ const MatricYearPage = () => {
         <div className="mt-12 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-white/60 text-sm">
             <TrendingUp className="h-4 w-4" />
-            <span>{subjects.filter(s => s.questions.length > 0).length} of {subjects.length} subjects available</span>
+            <span>{subjects.filter((s) => s.available).length} of {subjects.length} subjects available</span>
           </div>
         </div>
       </div>

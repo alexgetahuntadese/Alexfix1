@@ -28,12 +28,19 @@ const flattenQuestions = (questionsObj: Record<string, any[]>): any[] => {
 };
 
 // Normalize different question formats to a standard format
-const normalizeQuestion = (q: any): Question => ({
-  question: q.question,
-  options: q.options,
-  correctAnswer: q.correct || q.correctAnswer,
-  explanation: q.explanation,
-});
+const normalizeQuestion = (q: any): Question => {
+  const rawCorrectAnswer = q.correct ?? q.correctAnswer;
+  const correctAnswer = typeof rawCorrectAnswer === 'number'
+    ? q.options?.[rawCorrectAnswer]
+    : rawCorrectAnswer;
+
+  return {
+    question: q.question,
+    options: q.options,
+    correctAnswer,
+    explanation: q.explanation,
+  };
+};
 
 const matricQuestionSets: Record<string, Record<string, any>> = {
   "12": {
